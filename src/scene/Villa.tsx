@@ -1,0 +1,949 @@
+import { useMemo } from 'react';
+import { useTiled, useSurface } from './useTextures';
+import {
+  Balustrade,
+  Chair,
+  CHARCOAL,
+  FRAME,
+  Glass,
+  LINEN,
+  Mullions,
+  Plant,
+  RENDER_WHITE,
+  TIMBER,
+  Tree,
+  seededScatter,
+} from './parts';
+
+/**
+ * Wide contemporary villa, modelled from a reference photograph.
+ *
+ * Levels (world Y):
+ *   0.00  lawn
+ *   0.30  terrace deck
+ *   1.10  ground floor — entered by four steps and a real door opening
+ *   4.60  first floor — bedroom, opening onto a balcony
+ *   8.20  roof slab
+ *
+ * The front glazing has a genuine 2.4-wide gap at x 0.2..2.6, so the camera
+ * walks up the steps and through a door rather than through a pane.
+ */
+
+const GROUND_Y = 1.1;
+const UPPER_Y = 4.6;
+
+export default function Villa({ night }: { night: boolean }) {
+  const concrete = useTiled('concrete', [10, 6]);
+  const concreteBig = useTiled('concrete', [34, 8]);
+  const stone = useTiled('stone', [10, 18]);
+  const wood = useTiled('oak', [10, 7]);
+  const woodUp = useTiled('oak', [9, 6]);
+  const oak = useTiled('oak', [1, 6]);
+  const grass = useTiled('grass', [58, 58]);
+  const bark = useTiled('bark', [2, 5]);
+  const plaster = useTiled('plaster', [8, 4]);
+  const fabric = useSurface([4, 3], 'fabric', 0.6);
+  const carpet = useSurface([5, 4], 'carpet', 0.8);
+  const marble = useTiled('marble', [2, 2]);
+  // Painted joinery: relief and roughness only, so `color` still drives hue.
+  const plasterFine = useSurface([6, 3]);
+  const paint = useSurface([2, 2]);
+  const joinery = useSurface([2, 2], 'planks', 0.4);
+  // timber cladding at building scale: board relief, colour from the material
+  const cladding = useSurface([9, 4], 'planks', 0.85);
+  // faint surface ripple for the pool — normals only, no colour
+  const ripple = useSurface([9, 3], 'concrete', 0.14);
+
+  const warm = night ? '#FFB861' : '#FFF3E2';
+  const lamp = night ? 3.4 : 2.2;
+
+  /**
+   * The camera's outdoor arc sweeps the +z side between roughly 15 and 50
+   * units out — (30,40), (-24,34), (-30,16), (-6,30), (16,26), (1.4,15) — and
+   * trees were scattered from 30 units, so the swing flew straight through
+   * them and a trunk filled the middle of the establishing shot. Anything in
+   * front of the house therefore has to sit outside that arc; behind it, where
+   * the camera never goes, trees can come in close and give the plot depth.
+   */
+  const trees = useMemo(() => {
+    return seededScatter(18, 11)
+      .map(({ a, b, c, d }) => {
+        const angle = a * Math.PI * 2;
+        const front = Math.sin(angle) > -0.15;
+        const dist = front ? 60 + b * 36 : 26 + b * 44;
+        return {
+          x: Math.cos(angle) * dist,
+          z: Math.sin(angle) * dist - 8,
+          h: 6 + c * 7,
+          r: 1.6 + d * 1.3,
+        };
+      })
+      // Never let one land on the house itself.
+      .filter((t) => Math.abs(t.x) > 22 || t.z < -14 || t.z > 26);
+  }, []);
+
+  return (
+    <group>
+      {/* ================= LANDSCAPE ================= */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
+        <planeGeometry args={[340, 340]} />
+        <meshStandardMaterial {...grass} color="#7C9A55" roughness={1} />
+      </mesh>
+
+      {/* ---- terrace ----
+           A 40 x 9 slab of one flat tone is the largest featureless surface in
+           the establishing shot and nothing gives it scale; paving joints are
+           what tell the eye how big it is. Drawing them as thin strips laid on
+           top failed — proud geometry that thin catches the sun and aliases
+           into bright lines, reading as road markings. A joint is a gap, so
+           this is a dark base with the paving set on top of it, and the gaps
+           between the slabs genuinely fall into shadow. */}
+      <mesh position={[-1, 0.12, 8]} receiveShadow castShadow>
+        <boxGeometry args={[40, 0.24, 9]} />
+        <meshStandardMaterial color="#6B675F" roughness={1} />
+      </mesh>
+      {Array.from({ length: 15 }, (_, i) =>
+        [5, 8, 11].map((z) => (
+          <mesh
+            key={`${i}-${z}`}
+            position={[-19.667 + i * 2.6667, 0.27, z]}
+            receiveShadow
+            castShadow
+          >
+            <boxGeometry args={[2.61, 0.06, 2.945]} />
+            <meshStandardMaterial {...concreteBig} color="#FFFDF7" roughness={0.9} />
+          </mesh>
+        ))
+      )}
+
+      {/* ---- entrance steps: terrace 0.30 -> threshold 1.10 ---- */}
+      {[0, 1, 2, 3].map((i) => (
+        <mesh
+          key={i}
+          position={[1.4, 0.4 + i * 0.2, 5.4 - i * 0.62]}
+          receiveShadow
+          castShadow
+        >
+          <boxGeometry args={[5.4 - i * 0.25, 0.2, 0.62]} />
+          <meshStandardMaterial {...concrete} color="#FFFDF7" roughness={0.9} />
+        </mesh>
+      ))}
+
+      {/* lawn steps at the terrace edge */}
+      {[0, 1, 2].map((i) => (
+        <mesh key={i} position={[2, 0.1 - i * 0.16, 13 + i * 1.0]} receiveShadow>
+          <boxGeometry args={[11 - i * 0.4, 0.16, 1.0]} />
+          <meshStandardMaterial {...concrete} color="#FFFDF7" roughness={0.9} />
+        </mesh>
+      ))}
+
+      {/* ================= LEFT WING =================
+           This was a solid 13 x 3.4 x 9 block with the glazing laid on its
+           front face, so the "windows" transmitted onto a wall 50mm behind
+           them and read as frosted grey panels. Glass only looks like glass if
+           there is a room behind it, so the wing is built as one. */}
+      {/* ---- plinth ----
+           The house plinth only spans x -6.5..8.5, so this wing's floor at
+           y 1.10 had nothing under it and the whole volume hung in the air.
+           As a solid block that read as a mass; hollowed out you see straight
+           beneath it. Set back 0.25 all round so it reads as a shadow gap
+           rather than a continuation of the wall. */}
+      <mesh position={[-14, 0.55, 0]} castShadow receiveShadow>
+        <boxGeometry args={[12.5, 1.1, 8.5]} />
+        <meshStandardMaterial {...concrete} color="#CFCAC1" roughness={0.92} />
+      </mesh>
+      <mesh position={[-14, GROUND_Y + 0.04, 0]} receiveShadow>
+        <boxGeometry args={[13, 0.08, 9]} />
+        <meshStandardMaterial {...wood} roughness={0.55} />
+      </mesh>
+      <mesh position={[-14, GROUND_Y + 3.36, 0]} receiveShadow>
+        <boxGeometry args={[13, 0.08, 9]} />
+        <meshStandardMaterial {...plasterFine} color="#F2EFE8" roughness={0.95} />
+      </mesh>
+      <mesh position={[-14, GROUND_Y + 1.7, -4.35]} castShadow receiveShadow>
+        <boxGeometry args={[13, 3.4, 0.3]} />
+        <meshStandardMaterial {...plaster} color={RENDER_WHITE} roughness={0.92} />
+      </mesh>
+      {[-20.35, -7.65].map((x) => (
+        <mesh key={x} position={[x, GROUND_Y + 1.7, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.3, 3.4, 9]} />
+          <meshStandardMaterial {...plaster} color={RENDER_WHITE} roughness={0.92} />
+        </mesh>
+      ))}
+      {/* ---- left wing interior ----
+           Now that the glazing actually transmits, an empty shell is visible
+           through it. A lounge reads through glass with very little: a seat
+           mass, a rug to ground it, a table, and something vertical. */}
+      <group position={[-14, GROUND_Y, 0]}>
+        {/* skirting */}
+        {[-6.2, 6.2].map((x) => (
+          <mesh key={x} position={[x, 0.17, 0]} receiveShadow>
+            <boxGeometry args={[0.06, 0.18, 8.8]} />
+            <meshStandardMaterial {...plasterFine} color="#FBF9F4" roughness={0.6} />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.1, -0.6]} receiveShadow>
+          <boxGeometry args={[6.4, 0.03, 4.6]} />
+          <meshStandardMaterial {...carpet} color="#B3AA98" roughness={1} />
+        </mesh>
+        {/* long sofa facing the glass */}
+        <group position={[-0.6, 0, -2.2]}>
+          <mesh position={[0, 0.42, 0]} castShadow receiveShadow>
+            <boxGeometry args={[4.8, 0.54, 1.6]} />
+            <meshStandardMaterial {...fabric} color="#8F8A7E" roughness={0.96} />
+          </mesh>
+          <mesh position={[0, 0.92, -0.66]} castShadow receiveShadow>
+            <boxGeometry args={[4.8, 0.82, 0.28]} />
+            <meshStandardMaterial {...fabric} color="#8F8A7E" roughness={0.96} />
+          </mesh>
+          {[-1.55, 0, 1.55].map((x) => (
+            <mesh key={x} position={[x, 0.72, 0.1]} castShadow receiveShadow>
+              <boxGeometry args={[1.48, 0.16, 1.34]} />
+              <meshStandardMaterial {...fabric} color="#9A9486" roughness={0.95} />
+            </mesh>
+          ))}
+        </group>
+        {/* low table */}
+        <mesh position={[-0.6, 0.4, -0.2]} castShadow receiveShadow>
+          <boxGeometry args={[2.0, 0.09, 0.95]} />
+          <meshStandardMaterial {...joinery} color="#C0A883" roughness={0.45} />
+        </mesh>
+        {/* sideboard against the end wall */}
+        <mesh position={[5.0, 0.42, -1.6]} castShadow receiveShadow>
+          <boxGeometry args={[0.7, 0.84, 3.2]} />
+          <meshStandardMaterial {...joinery} color="#C4B49B" roughness={0.55} />
+        </mesh>
+        <Plant position={[4.6, 0, 2.4]} scale={1.2} />
+        <Chair position={[2.6, 0, 1.4]} rotation={-1.1} />
+      </group>
+
+      <Glass position={[-14, GROUND_Y + 1.7, 4.55]} args={[11.4, 2.7, 0.06]} />
+      <Mullions position={[-14, GROUND_Y + 1.7, 4.62]} width={11.4} height={2.7} bays={5} />
+      <mesh position={[-14, GROUND_Y + 3.6, 0.6]} castShadow receiveShadow>
+        <boxGeometry args={[14.4, 0.5, 11.6]} />
+        <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
+      </mesh>
+      <pointLight position={[-14, GROUND_Y + 1.6, 2]} intensity={night ? 2.4 : 0.5} distance={13} color={warm} />
+
+      {/* ================= STONE CORE =================
+           These were solid blocks: 4.6 x 9 x 8 spanning x -5.7..-1.1, and
+           2.6 x 9 x 8 spanning x 4.1..6.7. The interior runs x -5.7..7.7, so
+           the sofa sat buried in the first and the entire staircase (x 4.65)
+           inside the second — which is exactly why the climb read as going up
+           through solid material and the bedroom's back wall was raw exterior
+           masonry. Only the outer faces are ever seen, so they are walls. */}
+      <mesh position={[-5.9, 4.6, -2.4]} castShadow receiveShadow>
+        <boxGeometry args={[0.42, 9, 8]} />
+        <meshStandardMaterial {...stone} color="#CFC7B7" roughness={0.95} />
+      </mesh>
+      <mesh position={[7.9, 4.6, -2.4]} castShadow receiveShadow>
+        <boxGeometry args={[0.42, 9, 8]} />
+        <meshStandardMaterial {...stone} color="#CFC7B7" roughness={0.95} />
+      </mesh>
+      {/* rear enclosure */}
+      <mesh position={[1, 4.6, -6.3]} castShadow receiveShadow>
+        <boxGeometry args={[14, 9, 0.3]} />
+        <meshStandardMaterial {...plaster} color={RENDER_WHITE} roughness={0.92} />
+      </mesh>
+
+      {/* base plinth under the raised floor */}
+      <mesh position={[1, 0.55, -1.4]} castShadow receiveShadow>
+        <boxGeometry args={[15, 1.1, 10]} />
+        <meshStandardMaterial {...concrete} color="#D8D4CC" roughness={0.9} />
+      </mesh>
+
+      {/* ---- ground-floor glazing, split around a 2.4-wide door ---- */}
+      <Glass position={[-1.35, GROUND_Y + 1.6, 1.9]} args={[2.5, 3.2, 0.06]} />
+      <Mullions position={[-1.35, GROUND_Y + 1.6, 1.97]} width={2.5} height={3.2} bays={1} />
+      <Glass position={[3.6, GROUND_Y + 1.6, 1.9]} args={[2.0, 3.2, 0.06]} />
+      <Mullions position={[3.6, GROUND_Y + 1.6, 1.97]} width={2.0} height={3.2} bays={1} />
+      {/* door reveal + header */}
+      <mesh position={[1.4, GROUND_Y + 3.35, 1.9]}>
+        <boxGeometry args={[2.6, 0.28, 0.16]} />
+        <meshStandardMaterial color={FRAME} roughness={0.45} metalness={0.35} />
+      </mesh>
+      {[0.15, 2.65].map((x) => (
+        <mesh key={x} position={[x, GROUND_Y + 1.6, 1.9]}>
+          <boxGeometry args={[0.14, 3.5, 0.16]} />
+          <meshStandardMaterial color={FRAME} roughness={0.45} metalness={0.35} />
+        </mesh>
+      ))}
+
+      {/* ---- GROUND FLOOR INTERIOR ---- */}
+      <group position={[1, GROUND_Y, -2]}>
+        <mesh position={[0, 0.04, 0]} receiveShadow>
+          <boxGeometry args={[13.4, 0.08, 8.4]} />
+          <meshStandardMaterial {...wood} roughness={0.55} />
+        </mesh>
+        {/* ---- pale ceiling, split around the same stairwell void as the
+             structural slab above it (world x 2.8..6.0, z -3.5..1.7; this
+             group sits at [1, GROUND_Y, -2], so local x 1.8..5.0, z -1.5..3.7).
+             As one solid panel it sealed the opening the slab had carefully
+             left, and the climb ran the camera straight into it. ---- */}
+        <mesh position={[-2.45, 3.02, 0]}>
+          <boxGeometry args={[8.5, 0.08, 8.4]} />
+          <meshStandardMaterial {...plasterFine} color="#F2EFE8" roughness={0.95} />
+        </mesh>
+        <mesh position={[5.85, 3.02, 0]}>
+          <boxGeometry args={[1.7, 0.08, 8.4]} />
+          <meshStandardMaterial {...plasterFine} color="#F2EFE8" roughness={0.95} />
+        </mesh>
+        <mesh position={[3.4, 3.02, -2.85]}>
+          <boxGeometry args={[3.2, 0.08, 2.7]} />
+          <meshStandardMaterial {...plasterFine} color="#F2EFE8" roughness={0.95} />
+        </mesh>
+        <mesh position={[3.4, 3.02, 3.95]}>
+          <boxGeometry args={[3.2, 0.08, 0.5]} />
+          <meshStandardMaterial {...plasterFine} color="#F2EFE8" roughness={0.95} />
+        </mesh>
+        {/* stone reveals are exterior cladding; line the room in plaster */}
+        {[-6.5, 6.5].map((x) => (
+          <mesh key={x} position={[x, 1.7, 0]} receiveShadow>
+            <boxGeometry args={[0.1, 3.3, 8.4]} />
+            <meshStandardMaterial {...plasterFine} color="#EFECE4" roughness={0.95} />
+          </mesh>
+        ))}
+
+        {/* ---- skirting and cornice ----
+             In the showroom reference every wall meets the floor through a
+             white skirting board and the ceiling through a shadow gap. Rooms
+             whose surfaces meet at a raw corner read as a 3D model; rooms with
+             trim read as built. It is four boxes and it does more than any
+             amount of extra furniture. */}
+        {[-6.42, 6.42].map((x) => (
+          <mesh key={`sk${x}`} position={[x, 0.16, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.06, 0.18, 8.4]} />
+            <meshStandardMaterial {...plasterFine} color="#FBF9F4" roughness={0.6} />
+          </mesh>
+        ))}
+        {[-4.16, 4.16].map((z) => (
+          <mesh key={`skz${z}`} position={[0, 0.16, z]} castShadow receiveShadow>
+            <boxGeometry args={[13.4, 0.18, 0.06]} />
+            <meshStandardMaterial {...plasterFine} color="#FBF9F4" roughness={0.6} />
+          </mesh>
+        ))}
+        {/* recessed shadow gap at the ceiling line */}
+        {[-6.44, 6.44].map((x) => (
+          <mesh key={`cg${x}`} position={[x, 3.26, 0]}>
+            <boxGeometry args={[0.04, 0.07, 8.4]} />
+            <meshStandardMaterial color="#9C978C" roughness={1} />
+          </mesh>
+        ))}
+
+        {/* living: sofa, table, rug, media wall */}
+        <mesh position={[-2.4, 0.09, 0.4]} receiveShadow>
+          <boxGeometry args={[5.4, 0.03, 3.8]} />
+          <meshStandardMaterial {...carpet} color="#B3AA98" roughness={1} />
+        </mesh>
+        <group position={[-2.4, 0, -0.9]}>
+          <mesh position={[0, 0.44, 0]} castShadow receiveShadow>
+            <boxGeometry args={[4.4, 0.58, 1.7]} />
+            <meshStandardMaterial {...fabric} color="#8C877C" roughness={0.96} />
+          </mesh>
+          <mesh position={[0, 0.96, -0.7]} castShadow receiveShadow>
+            <boxGeometry args={[4.4, 0.86, 0.3]} />
+            <meshStandardMaterial {...fabric} color="#8C877C" roughness={0.96} />
+          </mesh>
+          {[-2.15, 2.15].map((x) => (
+            <mesh key={x} position={[x, 0.76, 0]} castShadow receiveShadow>
+              <boxGeometry args={[0.3, 1.04, 1.7]} />
+              <meshStandardMaterial {...fabric} color="#7C776D" roughness={0.96} />
+            </mesh>
+          ))}
+          {/* seat cushions — a sofa without a cushion line is a bench */}
+          {[-1.42, 0, 1.42].map((x) => (
+            <mesh key={`c${x}`} position={[x, 0.75, 0.12]} castShadow receiveShadow>
+              <boxGeometry args={[1.34, 0.18, 1.42]} />
+              <meshStandardMaterial {...fabric} color="#96907F" roughness={0.95} />
+            </mesh>
+          ))}
+        </group>
+        <mesh position={[-2.4, 0.44, 1.1]} castShadow>
+          <boxGeometry args={[2.4, 0.1, 1.1]} />
+          <meshStandardMaterial {...joinery} color="#C0A883" roughness={0.45} />
+        </mesh>
+
+        {/* dining */}
+        <mesh position={[3.6, 0.78, 0.6]} castShadow>
+          <boxGeometry args={[3.2, 0.09, 1.4]} />
+          <meshStandardMaterial {...joinery} color="#C0A883" roughness={0.4} />
+        </mesh>
+        {[[-1.4, 0.6], [1.4, 0.6]].map(([x, z], i) => (
+          <mesh key={i} position={[3.6 + x, 0.38, z]} castShadow>
+            <boxGeometry args={[0.12, 0.76, 1.1]} />
+            <meshStandardMaterial color="#2E2E2C" roughness={0.4} metalness={0.5} />
+          </mesh>
+        ))}
+        <Chair position={[2.5, 0, -0.5]} rotation={0} />
+        <Chair position={[4.7, 0, -0.5]} rotation={0} />
+        <Chair position={[2.5, 0, 1.7]} rotation={Math.PI} />
+        <Chair position={[4.7, 0, 1.7]} rotation={Math.PI} />
+
+        {/* kitchen run against the rear wall */}
+        <mesh position={[0, 0.5, -3.6]} castShadow>
+          <boxGeometry args={[9, 1.0, 0.8]} />
+          <meshStandardMaterial {...paint} color="#DCD8CF" roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 1.02, -3.6]}>
+          <boxGeometry args={[9.1, 0.06, 0.86]} />
+          <meshStandardMaterial {...marble} color="#6E6C66" roughness={0.22} metalness={0.05} />
+        </mesh>
+
+        {/* art on the stone */}
+        <mesh position={[-5.6, 1.7, -1.6]} rotation={[0, Math.PI / 2, 0]}>
+          <boxGeometry args={[2.2, 1.5, 0.06]} />
+          <meshStandardMaterial color="#6B6357" roughness={0.8} />
+        </mesh>
+
+        <Plant position={[5.4, 0, 2.4]} scale={1.15} />
+        <Plant position={[-5.4, 0, 2.6]} />
+
+        {[
+          [-3, 3.0, -0.4],
+          [3.2, 3.0, 0.4],
+          [0, 3.0, 2.6],
+          [0, 2.4, -3.4],
+        ].map(([x, y, z], i) => (
+          <pointLight key={i} position={[x, y, z]} intensity={lamp} distance={14} color={warm} />
+        ))}
+      </group>
+
+      {/* ---- mid slab, split around a stairwell void at x 3.2..5.4 ----
+           The camera climbs a real flight through this opening; a solid slab
+           would mean it passed through the ceiling. */}
+      <mesh position={[-1.95, UPPER_Y - 0.2, -1.2]} castShadow receiveShadow>
+        <boxGeometry args={[9.5, 0.4, 11]} />
+        <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
+      </mesh>
+      <mesh position={[7.35, UPPER_Y - 0.2, -1.2]} castShadow receiveShadow>
+        <boxGeometry args={[2.7, 0.4, 11]} />
+        <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
+      </mesh>
+      {/* close the void fore and aft of the flight */}
+      <mesh position={[4.4, UPPER_Y - 0.2, -5.1]} castShadow receiveShadow>
+        <boxGeometry args={[3.2, 0.4, 3.2]} />
+        <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
+      </mesh>
+      <mesh position={[4.4, UPPER_Y - 0.2, 3.0]} castShadow receiveShadow>
+        <boxGeometry args={[3.2, 0.4, 2.6]} />
+        <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
+      </mesh>
+
+      {/* ---- stairwell trim: a fascia round the void so the opening reads
+           as architecture rather than a hole punched in the slab ---- */}
+      {[[4.65, -3.62], [4.65, 1.82]].map(([x, z], i) => (
+        <mesh key={i} position={[x, UPPER_Y - 0.2, z]}>
+          <boxGeometry args={[2.7, 0.46, 0.12]} />
+          <meshStandardMaterial {...paint} color="#E4DFD4" roughness={0.8} />
+        </mesh>
+      ))}
+      {[[3.32, -0.9], [5.98, -0.9]].map(([x, z], i) => (
+        <mesh key={i} position={[x, UPPER_Y - 0.2, z]}>
+          <boxGeometry args={[0.12, 0.46, 5.4]} />
+          <meshStandardMaterial {...paint} color="#E4DFD4" roughness={0.8} />
+        </mesh>
+      ))}
+      {/* daylight down the stairwell — the eye follows it upward */}
+      <pointLight position={[4.65, UPPER_Y + 1.4, -0.9]} intensity={night ? 1.4 : 2.6} distance={11} color={warm} />
+
+      {/* ---- STAIRCASE: ground 1.14 -> first floor 4.64, 18 risers ----
+           Treads alone read as floating slats. A flight you believe in needs
+           the riser face closing each step, a nosing that overhangs it, and a
+           handrail at hand height — that is what gives it scale. Widened to
+           2.0 so it does not look like a service stair. */}
+      <group>
+        {Array.from({ length: 18 }, (_, i) => {
+          const y = 1.24 + i * 0.194;
+          const z = 1.5 - i * 0.28;
+          return (
+            <group key={i}>
+              {/* tread, with a 0.04 nosing proud of the riser below */}
+              <mesh position={[4.65, y, z]} castShadow receiveShadow>
+                <boxGeometry args={[2.0, 0.11, 0.34]} />
+                <meshStandardMaterial {...oak} color="#C9B79A" roughness={0.6} />
+              </mesh>
+              {/* riser: the vertical face under the nosing */}
+              <mesh position={[4.65, y - 0.152, z - 0.155]} castShadow receiveShadow>
+                <boxGeometry args={[2.0, 0.194, 0.03]} />
+                <meshStandardMaterial {...paint} color="#F4F1EA" roughness={0.8} />
+              </mesh>
+            </group>
+          );
+        })}
+        {/* stringer under the treads */}
+        <mesh position={[4.65, 2.5, -0.9]} rotation={[0.605, 0, 0]} castShadow>
+          <boxGeometry args={[2.1, 0.16, 5.9]} />
+          <meshStandardMaterial {...paint} color={RENDER_WHITE} roughness={0.9} />
+        </mesh>
+        {/* handrail, 0.95 above the pitch line on the open side */}
+        <mesh position={[3.62, 3.84, -0.88]} rotation={[0.605, 0, 0]} castShadow>
+          <boxGeometry args={[0.07, 0.07, 5.9]} />
+          <meshStandardMaterial color="#B79C77" roughness={0.4} />
+        </mesh>
+        {/* glass balustrade along the open side */}
+        <mesh position={[3.62, 3.35, -0.9]} rotation={[0.605, 0, 0]}>
+          <boxGeometry args={[0.04, 1.0, 5.9]} />
+          <meshStandardMaterial
+            color="#CFDAD8"
+            transparent
+            opacity={0.26}
+            roughness={0.08}
+            metalness={0.1}
+            envMapIntensity={2}
+          />
+        </mesh>
+      </group>
+
+      {/* ---- FIRST FLOOR: bedroom ---- */}
+      <group position={[1, UPPER_Y, -2]}>
+        {/* split around the stairwell (world x 3.2..5.4 -> local 2.2..4.4) */}
+        <mesh position={[-1.95, 0.04, 0]} receiveShadow>
+          <boxGeometry args={[9.5, 0.08, 8.4]} />
+          <meshStandardMaterial {...woodUp} roughness={0.55} />
+        </mesh>
+        <mesh position={[6.35, 0.04, 0]} receiveShadow>
+          <boxGeometry args={[2.7, 0.08, 8.4]} />
+          <meshStandardMaterial {...woodUp} roughness={0.55} />
+        </mesh>
+        <mesh position={[3.4, 0.04, -3.1]} receiveShadow>
+          <boxGeometry args={[3.2, 0.08, 2.2]} />
+          <meshStandardMaterial {...woodUp} roughness={0.55} />
+        </mesh>
+        <mesh position={[0, 3.3, 0]}>
+          <boxGeometry args={[13.4, 0.08, 8.4]} />
+          <meshStandardMaterial {...plaster} color={RENDER_WHITE} roughness={0.95} />
+        </mesh>
+
+        {/* ---- enclosing walls ----
+             Without these the bedroom is open to the sky and the camera looks
+             straight out of the building while climbing the stair. */}
+        {[-6.65, 6.65].map((x) => (
+          <mesh key={x} position={[x, 1.7, 0]} receiveShadow castShadow>
+            <boxGeometry args={[0.14, 3.3, 8.4]} />
+            <meshStandardMaterial {...plaster} color="#EFECE4" roughness={0.95} />
+          </mesh>
+        ))}
+        <mesh position={[0, 1.7, -4.17]} receiveShadow castShadow>
+          <boxGeometry args={[13.4, 3.3, 0.14]} />
+          <meshStandardMaterial {...plaster} color="#EFECE4" roughness={0.95} />
+        </mesh>
+        {/* front returns either side of the glazing */}
+        {[[-4.9, 3.6], [5.6, 2.2]].map(([x, w]) => (
+          <mesh key={x} position={[x, 1.7, 4.17]} receiveShadow castShadow>
+            <boxGeometry args={[w, 3.3, 0.14]} />
+            <meshStandardMaterial {...plaster} color="#EFECE4" roughness={0.95} />
+          </mesh>
+        ))}
+        {/* ---- balustrade around the open stairwell edge ----
+             The void is world x 2.8..6.0, z -3.5..1.7 (local x 1.8..5.0,
+             z -1.5..3.7). This previously ran z -3.2..1.2, so it guarded solid
+             floor at one end and left the opening unprotected at the other. */}
+        <mesh position={[1.8, 0.55, 1.1]}>
+          <boxGeometry args={[0.05, 1.0, 5.2]} />
+          <meshStandardMaterial
+            color="#CFDAD8"
+            transparent
+            opacity={0.26}
+            roughness={0.08}
+            metalness={0.1}
+            envMapIntensity={2}
+          />
+        </mesh>
+        <mesh position={[3.4, 0.55, 3.7]}>
+          <boxGeometry args={[3.2, 1.0, 0.05]} />
+          <meshStandardMaterial
+            color="#CFDAD8"
+            transparent
+            opacity={0.26}
+            roughness={0.08}
+            metalness={0.1}
+            envMapIntensity={2}
+          />
+        </mesh>
+
+        {/* skirting, as downstairs */}
+        {[-6.55, 1.72].map((x) => (
+          <mesh key={` usk${x}`} position={[x, 0.17, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.07, 0.18, 8.4]} />
+            <meshStandardMaterial {...plasterFine} color="#FBF9F4" roughness={0.6} />
+          </mesh>
+        ))}
+        <mesh position={[-2.4, 0.17, -4.06]} castShadow receiveShadow>
+          <boxGeometry args={[8.5, 0.18, 0.07]} />
+          <meshStandardMaterial {...plasterFine} color="#FBF9F4" roughness={0.6} />
+        </mesh>
+
+        {/* ---- bed ----
+             Was four bare white boxes, which is why it read as packaging
+             rather than bedding. What makes a made bed legible is the layering:
+             the duvet overhangs the base on three sides, the top sheet is
+             turned back over it, and the pillows sit tilted against the
+             headboard instead of lying flat. */}
+        <group position={[-2.2, 0, -1.4]}>
+          {/* divan base, inset so the duvet overhangs it */}
+          <mesh position={[0, 0.26, 0]} castShadow receiveShadow>
+            <boxGeometry args={[2.76, 0.36, 3.86]} />
+            <meshStandardMaterial {...fabric} color="#6E6A62" roughness={0.9} />
+          </mesh>
+          {/* mattress */}
+          <mesh position={[0, 0.56, 0]} castShadow receiveShadow>
+            <boxGeometry args={[2.92, 0.28, 3.94]} />
+            <meshStandardMaterial {...fabric} color="#E4DFD4" roughness={0.97} />
+          </mesh>
+          {/* duvet, proud of the mattress and hanging over the sides */}
+          <mesh position={[0, 0.78, 0.34]} castShadow receiveShadow>
+            <boxGeometry args={[3.08, 0.2, 3.3]} />
+            <meshStandardMaterial {...fabric} color="#EFEBE2" roughness={0.98} />
+          </mesh>
+          {/* the fall of the duvet down each side */}
+          {[-1.5, 1.5].map((x) => (
+            <mesh key={`df${x}`} position={[x, 0.6, 0.34]} castShadow>
+              <boxGeometry args={[0.1, 0.34, 3.3]} />
+              <meshStandardMaterial {...fabric} color="#E8E3D9" roughness={0.98} />
+            </mesh>
+          ))}
+          {/* top sheet, turned back across the duvet */}
+          <mesh position={[0, 0.885, -0.86]} rotation={[0.04, 0, 0]} castShadow>
+            <boxGeometry args={[3.04, 0.04, 0.66]} />
+            <meshStandardMaterial {...fabric} color="#FAF8F3" roughness={0.98} />
+          </mesh>
+          {/* headboard, upholstered and panelled */}
+          <mesh position={[0, 0.95, -2.06]} castShadow receiveShadow>
+            <boxGeometry args={[3.24, 1.5, 0.14]} />
+            <meshStandardMaterial {...fabric} color={LINEN} roughness={0.96} />
+          </mesh>
+          {[-1.0, 0, 1.0].map((x) => (
+            <mesh key={`hp${x}`} position={[x, 1.0, -1.97]} castShadow>
+              <boxGeometry args={[0.96, 1.3, 0.06]} />
+              <meshStandardMaterial {...fabric} color="#CEC8BA" roughness={0.96} />
+            </mesh>
+          ))}
+          {/* pillows, tilted back against the headboard */}
+          {[-0.68, 0.68].map((x) => (
+            <mesh key={x} position={[x, 0.98, -1.62]} rotation={[-0.42, 0, 0]} castShadow>
+              <boxGeometry args={[1.22, 0.24, 0.7]} />
+              <meshStandardMaterial {...fabric} color="#F8F5EE" roughness={0.98} />
+            </mesh>
+          ))}
+          {/* smaller cushions in front of them */}
+          {[-0.46, 0.46].map((x) => (
+            <mesh key={`c${x}`} position={[x, 0.96, -1.16]} rotation={[-0.2, 0, 0]} castShadow>
+              <boxGeometry args={[0.62, 0.18, 0.5]} />
+              <meshStandardMaterial {...fabric} color="#C9C2B2" roughness={0.98} />
+            </mesh>
+          ))}
+          {/* throw folded across the foot */}
+          <mesh position={[0, 0.9, 1.28]} castShadow>
+            <boxGeometry args={[3.12, 0.07, 0.92]} />
+            <meshStandardMaterial {...fabric} color="#8D9A7C" roughness={0.98} />
+          </mesh>
+          {[-1.52, 1.52].map((x) => (
+            <mesh key={`tf${x}`} position={[x, 0.72, 1.28]} castShadow>
+              <boxGeometry args={[0.08, 0.3, 0.92]} />
+              <meshStandardMaterial {...fabric} color="#84906F" roughness={0.98} />
+            </mesh>
+          ))}
+        </group>
+
+        {/* bedside tables + lamps */}
+        {[-4.1, -0.3].map((x) => (
+          <group key={x} position={[x, 0, -3.1]}>
+            <mesh position={[0, 0.26, 0]} castShadow>
+              <boxGeometry args={[0.66, 0.5, 0.5]} />
+              <meshStandardMaterial {...joinery} color="#C0A883" roughness={0.5} />
+            </mesh>
+            <mesh position={[0, 0.66, 0]}>
+              <cylinderGeometry args={[0.17, 0.21, 0.3, 14]} />
+              <meshStandardMaterial
+                color="#F3EDE1"
+                emissive="#FFB861"
+                emissiveIntensity={night ? 1.6 : 0.15}
+                roughness={0.9}
+              />
+            </mesh>
+            <pointLight position={[0, 0.7, 0]} intensity={night ? 1.6 : 0} distance={5} color="#FFB861" />
+          </group>
+        ))}
+
+        {/* ---- wardrobe, with doors and handles rather than one slab ---- */}
+        <group position={[-6.2, 0, -1.4]} rotation={[0, Math.PI / 2, 0]}>
+          <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
+            <boxGeometry args={[3.2, 2.4, 0.66]} />
+            <meshStandardMaterial {...joinery} color="#C4B49B" roughness={0.62} />
+          </mesh>
+          {/* door leaves, proud of the carcass so the joints catch light */}
+          {[-1.18, -0.39, 0.39, 1.18].map((x) => (
+            <mesh key={x} position={[x, 1.2, 0.35]} castShadow>
+              <boxGeometry args={[0.74, 2.3, 0.05]} />
+              <meshStandardMaterial {...joinery} color="#CDBEA6" roughness={0.5} />
+            </mesh>
+          ))}
+          {[-0.79, 0.79].map((x) => (
+            <mesh key={`h${x}`} position={[x, 1.2, 0.4]} castShadow>
+              <boxGeometry args={[0.03, 0.5, 0.03]} />
+              <meshStandardMaterial color="#3A3A38" roughness={0.35} metalness={0.7} />
+            </mesh>
+          ))}
+        </group>
+
+        {/* ---- dressing table + mirror + stool ---- */}
+        <group position={[-4.4, 0, -3.72]}>
+          <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
+            <boxGeometry args={[1.7, 0.06, 0.52]} />
+            <meshStandardMaterial {...joinery} color="#C4B49B" roughness={0.45} />
+          </mesh>
+          {[-0.78, 0.78].map((x) => (
+            <mesh key={x} position={[x, 0.37, 0]} castShadow>
+              <boxGeometry args={[0.06, 0.74, 0.48]} />
+              <meshStandardMaterial color="#3A3A38" roughness={0.4} metalness={0.6} />
+            </mesh>
+          ))}
+          {/* mirror */}
+          <mesh position={[0, 1.62, 0.16]} castShadow>
+            <boxGeometry args={[1.0, 1.5, 0.05]} />
+            <meshStandardMaterial color="#6E7477" roughness={0.06} metalness={0.95} envMapIntensity={1.1} />
+          </mesh>
+          {/* stool */}
+          <mesh position={[0, 0.44, 0.7]} castShadow receiveShadow>
+            <boxGeometry args={[0.6, 0.1, 0.5]} />
+            <meshStandardMaterial {...fabric} color="#8E8877" roughness={0.95} />
+          </mesh>
+          {[[-0.24, 0.19], [0.24, 0.19], [-0.24, -0.19], [0.24, -0.19]].map(([x, z], i) => (
+            <mesh key={i} position={[x, 0.19, 0.7 + z]} castShadow>
+              <boxGeometry args={[0.04, 0.39, 0.04]} />
+              <meshStandardMaterial color="#3A3A38" roughness={0.4} metalness={0.6} />
+            </mesh>
+          ))}
+        </group>
+
+        {/* bench at the foot of the bed */}
+        <mesh position={[-2.2, 0.42, 0.95]} castShadow receiveShadow>
+          <boxGeometry args={[2.4, 0.16, 0.6]} />
+          <meshStandardMaterial {...fabric} color="#9A937F" roughness={0.95} />
+        </mesh>
+        {[-1.06, 1.06].map((x) => (
+          <mesh key={`bl${x}`} position={[-2.2 + x, 0.17, 0.95]} castShadow>
+            <boxGeometry args={[0.08, 0.34, 0.54]} />
+            <meshStandardMaterial color="#3A3A38" roughness={0.4} metalness={0.6} />
+          </mesh>
+        ))}
+
+        {/* rug under the bed */}
+        <mesh position={[-2.2, 0.1, -0.5]} receiveShadow>
+          <boxGeometry args={[4.6, 0.03, 5.0]} />
+          <meshStandardMaterial {...carpet} color="#B5AC9A" roughness={1} />
+        </mesh>
+
+        {/* reading chair and side table by the glazing */}
+        <group position={[0.4, 0, 2.5]} rotation={[0, -0.5, 0]}>
+          <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.9, 0.36, 0.86]} />
+            <meshStandardMaterial {...fabric} color="#8A8474" roughness={0.95} />
+          </mesh>
+          <mesh position={[0, 0.78, -0.38]} castShadow>
+            <boxGeometry args={[0.9, 0.72, 0.16]} />
+            <meshStandardMaterial {...fabric} color="#8A8474" roughness={0.95} />
+          </mesh>
+        </group>
+        <mesh position={[1.3, 0.28, 2.0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.26, 0.24, 0.52, 20]} />
+          <meshStandardMaterial {...marble} color="#8C8A84" roughness={0.3} />
+        </mesh>
+
+        {/* art over the headboard */}
+        <mesh position={[-2.2, 2.0, -4.04]} castShadow>
+          <boxGeometry args={[1.5, 0.95, 0.05]} />
+          <meshStandardMaterial color="#A8AE9C" roughness={0.9} />
+        </mesh>
+        <mesh position={[-2.2, 2.0, -4.0]}>
+          <boxGeometry args={[1.6, 1.05, 0.03]} />
+          <meshStandardMaterial color="#4A4A46" roughness={0.55} />
+        </mesh>
+
+        <Plant position={[1.2, 0, -3.4]} scale={1.1} />
+
+        {[
+          [-2, 3.0, -1],
+          [3.4, 3.0, 0.6],
+        ].map(([x, y, z], i) => (
+          <pointLight key={i} position={[x, y, z]} intensity={lamp * 0.8} distance={13} color={warm} />
+        ))}
+      </group>
+
+      {/* first-floor glazing, split around the balcony doors */}
+      <Glass position={[-2.6, UPPER_Y + 1.7, 1.9]} args={[4.6, 3.2, 0.06]} />
+      <Mullions position={[-2.6, UPPER_Y + 1.7, 1.97]} width={4.6} height={3.2} bays={2} />
+      <Glass position={[4.4, UPPER_Y + 1.7, 1.9]} args={[2.4, 3.2, 0.06]} />
+      <Mullions position={[4.4, UPPER_Y + 1.7, 1.97]} width={2.4} height={3.2} bays={1} />
+
+      {/* ---- BALCONY ---- */}
+      <mesh position={[1.4, UPPER_Y - 0.05, 3.4] } castShadow receiveShadow>
+        <boxGeometry args={[7.4, 0.22, 3.4]} />
+        <meshStandardMaterial {...concrete} color="#EDEAE2" roughness={0.9} />
+      </mesh>
+      <Balustrade position={[1.4, UPPER_Y + 0.06, 5.05]} width={7.4} />
+      <Balustrade position={[-2.25, UPPER_Y + 0.06, 3.4]} width={3.4} rotation={[0, Math.PI / 2, 0]} />
+      <Balustrade position={[5.05, UPPER_Y + 0.06, 3.4]} width={3.4} rotation={[0, Math.PI / 2, 0]} />
+      <pointLight position={[1.4, UPPER_Y + 1.2, 3.4]} intensity={night ? 1.8 : 0} distance={8} color={warm} />
+
+      {/* roof + timber soffit */}
+      <mesh position={[1, 8.35, 0.2]} castShadow receiveShadow>
+        <boxGeometry args={[16.4, 0.55, 13.6]} />
+        <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
+      </mesh>
+      <mesh position={[1.4, 8.04, 4.2]} receiveShadow>
+        <boxGeometry args={[10, 0.08, 5]} />
+        <meshStandardMaterial color={TIMBER} roughness={0.65} />
+      </mesh>
+
+      {/* ================= RIGHT WING =================
+           Hollowed out for the same reason as the left wing. The timber
+           cladding stays on the outside faces; the room inside is lined. */}
+      {/* plinth, as the left wing */}
+      <mesh position={[12.5, 0.55, -0.6]} castShadow receiveShadow>
+        <boxGeometry args={[10.5, 1.1, 7.5]} />
+        <meshStandardMaterial {...concrete} color="#CFCAC1" roughness={0.92} />
+      </mesh>
+      <mesh position={[12.5, GROUND_Y + 0.04, -0.6]} receiveShadow>
+        <boxGeometry args={[11, 0.08, 8]} />
+        <meshStandardMaterial {...wood} roughness={0.55} />
+      </mesh>
+      <mesh position={[12.5, GROUND_Y + 4.16, -0.6]} receiveShadow>
+        <boxGeometry args={[11, 0.08, 8]} />
+        <meshStandardMaterial {...plasterFine} color="#F2EFE8" roughness={0.95} />
+      </mesh>
+      <mesh position={[12.5, GROUND_Y + 2.1, -4.45]} castShadow receiveShadow>
+        <boxGeometry args={[11, 4.2, 0.3]} />
+        <meshStandardMaterial {...cladding} color="#A48C6E" roughness={0.75} />
+      </mesh>
+      {[7.15, 17.85].map((x) => (
+        <mesh key={x} position={[x, GROUND_Y + 2.1, -0.6]} castShadow receiveShadow>
+          <boxGeometry args={[0.3, 4.2, 8]} />
+          <meshStandardMaterial {...cladding} color="#A48C6E" roughness={0.75} />
+        </mesh>
+      ))}
+      <Glass position={[12.5, GROUND_Y + 2.0, 3.45]} args={[9.4, 3.0, 0.06]} />
+      <Mullions position={[12.5, GROUND_Y + 2.0, 3.52]} width={9.4} height={3.0} bays={4} />
+      <mesh position={[12.5, GROUND_Y + 4.4, 0]} castShadow receiveShadow>
+        <boxGeometry args={[12.4, 0.5, 10.4]} />
+        <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
+      </mesh>
+      <pointLight position={[12.5, GROUND_Y + 1.8, 1]} intensity={night ? 2.6 : 0.5} distance={13} color={warm} />
+
+      {/* ================= POOL ================= */}
+      <mesh position={[-11, 0.32, 9.4]} receiveShadow>
+        <boxGeometry args={[14, 0.28, 5]} />
+        <meshStandardMaterial color={CHARCOAL} roughness={0.9} />
+      </mesh>
+      {/* ---- water ----
+           High metalness made this a mirror tinted dark blue, which from above
+           just reads as flat navy paint. Water is a dielectric: what sells it
+           is Fresnel — looking straight down you see the pool colour, and at a
+           grazing angle the sky takes over. That needs metalness at zero and
+           roughness near it, with a faint normal ripple to break the specular. */}
+      <mesh position={[-11, 0.47, 9.4]}>
+        <boxGeometry args={[13.4, 0.05, 4.4]} />
+        <meshStandardMaterial
+          {...ripple}
+          color="#2F7E92"
+          roughness={0.055}
+          metalness={0}
+          envMapIntensity={1.9}
+        />
+      </mesh>
+      {/* pool interior, seen through the water */}
+      <mesh position={[-11, 0.3, 9.4]} receiveShadow>
+        <boxGeometry args={[13.2, 0.3, 4.2]} />
+        <meshStandardMaterial color="#4E7F8C" roughness={0.6} />
+      </mesh>
+      {/* ---- sun loungers ----
+           Two floating slabs read as folded paper. A lounger is a frame with a
+           cushion on it, lifted clear of the deck: the daylight gap underneath
+           and the shadow it casts are what make it sit on the terrace rather
+           than hover over it. */}
+      {[-16, -13.6, -11.2, -8.8].map((x) => (
+        <group key={x} position={[x, 0.3, 6.0]}>
+          {/* frame legs */}
+          {[[-0.36, 0.8], [0.36, 0.8], [-0.36, -0.8], [0.36, -0.8]].map(([lx, lz], i) => (
+            <mesh key={i} position={[lx, 0.15, lz]} castShadow>
+              <boxGeometry args={[0.045, 0.3, 0.045]} />
+              <meshStandardMaterial color="#4A4844" roughness={0.4} metalness={0.7} />
+            </mesh>
+          ))}
+          {/* side rails */}
+          {[-0.38, 0.38].map((lx) => (
+            <mesh key={lx} position={[lx, 0.31, 0]} castShadow>
+              <boxGeometry args={[0.05, 0.05, 1.94]} />
+              <meshStandardMaterial color="#4A4844" roughness={0.4} metalness={0.7} />
+            </mesh>
+          ))}
+          {/* cushion, in three sections so it creases like a mattress */}
+          {[-0.62, 0.0, 0.62].map((cz) => (
+            <mesh key={cz} position={[0, 0.4, cz]} castShadow receiveShadow>
+              <boxGeometry args={[0.8, 0.13, 0.58]} />
+              <meshStandardMaterial {...fabric} color="#EDE9DF" roughness={0.92} />
+            </mesh>
+          ))}
+          {/* raked backrest */}
+          <mesh position={[0, 0.62, -1.02]} rotation={[-0.62, 0, 0]} castShadow>
+            <boxGeometry args={[0.8, 0.12, 0.86]} />
+            <meshStandardMaterial {...fabric} color="#EDE9DF" roughness={0.92} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* planters along the terrace edge */}
+      {[-6, 6, 10].map((x) => (
+        <group key={x} position={[x, 0.3, 11.4]}>
+          <mesh position={[0, 0.35, 0]} castShadow receiveShadow>
+            <boxGeometry args={[2.6, 0.7, 1.2]} />
+            <meshStandardMaterial {...concrete} color="#E8E5DD" roughness={0.9} />
+          </mesh>
+          {/* Planting, not a green lid. A flat box on top of the trough reads
+              as painted cardboard; a handful of overlapping clumps at varied
+              heights gives the ragged top edge that says "shrub". */}
+          {seededScatter(9, x + 31).map(({ a, b, c, d }, i) => (
+            <mesh
+              key={i}
+              position={[(a - 0.5) * 2.2, 0.74 + c * 0.20, (b - 0.5) * 0.8]}
+              scale={[1, 0.62, 1]}
+              castShadow
+            >
+              <icosahedronGeometry args={[0.26 + d * 0.18, 1]} />
+              <meshStandardMaterial
+                color={['#3E5A33', '#4A6B3C', '#375029'][i % 3]}
+                roughness={1}
+              />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* ================= PLANTING ================= */}
+      {trees.map((t, i) => (
+        <Tree key={i} position={[t.x, 0, t.z]} height={t.h} radius={t.r} seed={i} barkProps={bark} />
+      ))}
+      {/* Hedge beds at either end of the terrace — same reasoning as the
+          troughs: clumps, so the silhouette breaks up against the lawn. */}
+      {[-25, 23].map((x) => (
+        <group key={x} position={[x, 0, 10]}>
+          {seededScatter(22, x + 77).map(({ a, b, c, d }, i) => (
+            <mesh
+              key={i}
+              position={[(a - 0.5) * 3.2, 0.42 + c * 0.34, (b - 0.5) * 6.8]}
+              scale={[1, 0.58, 1]}
+              castShadow
+              receiveShadow
+            >
+              <icosahedronGeometry args={[0.66 + d * 0.36, 1]} />
+              <meshStandardMaterial
+                color={['#3E5A33', '#48663A', '#354D28'][i % 3]}
+                roughness={1}
+              />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}

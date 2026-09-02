@@ -1,0 +1,22 @@
+@import './styles/theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0; padding: 0;
+  background: #F6F5F2;
+  color: #16150F;
+}
+
+body {
+  font-family: 'Instrument Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: 'Instrument Serif', serif; }
+
+::selection { background: #3D5A45; color: #F6F5F2; }
