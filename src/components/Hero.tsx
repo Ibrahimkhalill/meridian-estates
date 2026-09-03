@@ -55,7 +55,7 @@ export default function Hero() {
   // visitor asked for a specific section by hash.
   useEffect(() => {
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    if (!window.location.hash) window.scrollTo(0, 0);
+    if (!window.location.hash) window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
   // Scrolling behind a full-screen overlay burns through the camera journey
@@ -213,8 +213,12 @@ export default function Hero() {
                 toggle under it; the same call to action sits in the CTA
                 section further down, where it has the room. */}
             <div className="flex flex-wrap items-end justify-between gap-6">
-                <button
-                  type="button"
+                {/* The primary call to action, which until now was a button
+                    with no handler. The enquiry form at the foot of the page
+                    is where a viewing is actually asked for, so that is where
+                    this goes. */}
+                <a
+                  href="#enquire"
                   className="a-fade-up d-600 pointer-events-auto group hidden items-center gap-3 rounded-full bg-moss px-8 py-4 text-sm font-medium text-on-dark transition-colors hover:bg-moss-hover sm:inline-flex"
                 >
                   Book a viewing
@@ -222,7 +226,7 @@ export default function Hero() {
                     className="h-4 w-4 transition-transform group-hover:translate-x-1"
                     strokeWidth={2}
                   />
-                </button>
+                </a>
 
                 {/* day / night */}
                 <div

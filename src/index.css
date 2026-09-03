@@ -20,3 +20,13 @@ body {
 .font-display { font-family: 'Instrument Serif', serif; }
 
 ::selection { background: #3D5A45; color: #F6F5F2; }
+
+/* The nav jumps across a page that is nine screens tall, and an instant jump
+   that far reads as a page load rather than a move within one document — you
+   arrive with no idea which direction you came from. Honoured only where the
+   visitor has not asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

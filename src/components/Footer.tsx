@@ -1,19 +1,51 @@
-const COLUMNS = [
+/**
+ * A footer directory for an agency that does not exist. Most of these name
+ * pages a real build would have and this one does not, so they stay inert —
+ * inventing destinations for them would be worse than the gap.
+ *
+ * The four in Contact are different: an address, a number and a call to
+ * action are things a visitor tries to *use*, and all three have somewhere
+ * real to go. Anything with an `href` here is live; the rest are plain text
+ * that no longer pretends to be a link.
+ */
+const COLUMNS: { heading: string; links: { label: string; href?: string }[] }[] = [
   {
     heading: 'Properties',
-    links: ['Buy', 'Rent', 'New developments', 'Exclusive collection', 'Sold archive'],
+    links: [
+      { label: 'Buy', href: '#properties' },
+      { label: 'Rent' },
+      { label: 'New developments' },
+      { label: 'Exclusive collection', href: '#collection' },
+      { label: 'Sold archive' },
+    ],
   },
   {
     heading: 'Services',
-    links: ['Mortgage advice', 'Valuation', 'Property management', 'Relocation'],
+    links: [
+      { label: 'Mortgage advice' },
+      { label: 'Valuation' },
+      { label: 'Property management' },
+      { label: 'Relocation' },
+    ],
   },
   {
     heading: 'Company',
-    links: ['About', 'Our advisers', 'Careers', 'Journal', 'Press'],
+    links: [
+      { label: 'About' },
+      { label: 'Our advisers' },
+      { label: 'Careers' },
+      { label: 'Journal', href: '#journal' },
+      { label: 'Press' },
+    ],
   },
   {
     heading: 'Contact',
-    links: ['hello@meridian.estate', '+1 (415) 555 0148', 'Book a viewing', 'Offices'],
+    links: [
+      { label: 'hello@meridian.estate', href: 'mailto:hello@meridian.estate' },
+      { label: '+1 (415) 555 0148', href: 'tel:+14155550148' },
+      { label: 'Book a viewing', href: '#enquire' },
+      { label: 'Offices' },
+    ],
   },
 ];
 
@@ -39,16 +71,25 @@ export default function Footer() {
                   any thumb-sized target. The extra padding does the work, so
                   the type and the rhythm are unchanged on a desktop. */}
               <ul className="mt-3 space-y-0 sm:mt-5 sm:space-y-3">
-                {col.links.map((l) => (
-                  <li key={l}>
-                    <a
-                      href="#"
-                      className="-mx-2 inline-block px-2 py-2.5 text-sm text-ink/80 transition-colors hover:text-ink sm:mx-0 sm:px-0 sm:py-0"
+                {col.links.map((l) =>
+                  l.href ? (
+                    <li key={l.label}>
+                      <a
+                        href={l.href}
+                        className="-mx-2 inline-block px-2 py-2.5 text-sm text-ink/80 transition-colors hover:text-ink sm:mx-0 sm:px-0 sm:py-0"
+                      >
+                        {l.label}
+                      </a>
+                    </li>
+                  ) : (
+                    <li
+                      key={l.label}
+                      className="-mx-2 px-2 py-2.5 text-sm text-ink/45 sm:mx-0 sm:px-0 sm:py-0"
                     >
-                      {l}
-                    </a>
-                  </li>
-                ))}
+                      {l.label}
+                    </li>
+                  )
+                )}
               </ul>
             </nav>
           ))}

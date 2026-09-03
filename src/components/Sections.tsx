@@ -73,7 +73,7 @@ const RESIDENCES = [
 
 export function Featured() {
   return (
-    <section className="mx-auto max-w-[1400px] px-5 py-24 md:px-10 md:py-32">
+    <section id="properties" className="scroll-mt-20 mx-auto max-w-[1400px] px-5 py-24 md:px-10 md:py-32">
       <Reveal className="flex flex-wrap items-end justify-between gap-6">
         <h2
           className="font-display max-w-[16ch] text-ink"
@@ -128,7 +128,7 @@ export function Featured() {
 
 export function Collection() {
   return (
-    <section className="border-y border-line">
+    <section id="collection" className="scroll-mt-20 border-y border-line">
       <div className="grid lg:grid-cols-[40%_60%]">
         <Reveal className="flex flex-col justify-center bg-ink px-5 py-20 text-on-dark md:px-14 md:py-28">
           <p className="text-xs uppercase tracking-[0.18em] text-on-dark/50">Exclusive collection</p>
@@ -187,7 +187,7 @@ const INTERIORS = [
 
 export function Interiors() {
   return (
-    <section className="mx-auto max-w-[1400px] px-5 py-24 md:px-10 md:py-32">
+    <section id="interiors" className="scroll-mt-20 mx-auto max-w-[1400px] px-5 py-24 md:px-10 md:py-32">
       <Reveal>
         <h2
           className="font-display max-w-[18ch] text-ink"
@@ -239,7 +239,7 @@ const STEPS = [
 
 export function Process() {
   return (
-    <section className="border-y border-line bg-band">
+    <section id="process" className="scroll-mt-20 border-y border-line bg-band">
       <div className="mx-auto max-w-[1400px] px-5 py-24 md:px-10 md:py-32">
         <Reveal>
           <h2
@@ -271,7 +271,7 @@ export function Process() {
 
 export function Editorial() {
   return (
-    <section className="relative min-h-[62svh] overflow-hidden md:min-h-[76svh]">
+    <section id="journal" className="scroll-mt-20 relative min-h-[62svh] overflow-hidden md:min-h-[76svh]">
       <Parallax range={72} overscan={1.24} rounded="" className="absolute inset-0 h-full w-full">
         <img
           src={img('1706808849777-96e0d7be3bb7', 1900)}
@@ -312,7 +312,7 @@ export function Editorial() {
 
 export function CTA() {
   return (
-    <section className="bg-moss">
+    <section id="enquire" className="scroll-mt-20 bg-moss">
       <div className="mx-auto max-w-[1400px] px-5 py-24 md:px-10 md:py-32">
         <Reveal className="grid gap-12 lg:grid-cols-2 lg:items-end">
           <h2
