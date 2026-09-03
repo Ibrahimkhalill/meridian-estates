@@ -531,7 +531,7 @@ export default function Villa({ night }: { night: boolean }) {
           position={[-6.42, 1.78, -0.9]}
           rotation={[0, Math.PI / 2, 0]}
           height={1.5}
-          map={art.arcs}
+          map={art.portrait}
         />
         <Artwork
           position={[6.42, 1.85, 0.7]}

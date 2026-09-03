@@ -69,6 +69,13 @@ export const ART = {
   horizon: '/art/horizon.webp',
   strata: '/art/strata.webp',
   arcs: '/art/arcs.webp',
+  /**
+   * The portrait over the living room sideboard — the frame the camera passes
+   * closest to. Replace it with `node scripts/frame-photo.mjs <your-photo>`,
+   * which handles a cut-out subject and the 2:3 print ratio; nothing here
+   * needs changing.
+   */
+  portrait: '/art/portrait.webp',
 };
 
 export function useArt() {
