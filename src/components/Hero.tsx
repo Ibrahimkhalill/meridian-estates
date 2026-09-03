@@ -24,13 +24,27 @@ export default function Hero() {
   const [entered, setEntered] = useState(false);
   const [hintGone, setHintGone] = useState(false);
 
-  // null until three's loading manager has something queued — see Loader.
-  const [loadPct, setLoadPct] = useState<number | null>(null);
+  /**
+   * Loading progress goes into a ref, not state.
+   *
+   * It arrives once per file — thirty-odd times in a couple of seconds — and
+   * as state every one of those re-rendered Hero, and through it the whole
+   * scene: `useTiled`/`useSurface` take their repeat as an array literal, so
+   * their memos miss on every render and re-clone every texture in the villa.
+   * Worse, that work runs inside the loading manager's own notification, and
+   * React eventually threw "maximum update depth exceeded" during the load.
+   *
+   * The Loader already runs a frame loop to animate its counter, so it can
+   * read the ref there and nothing else needs to re-render at all.
+   */
+  const loadPctRef = useRef<number | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [booted, setBooted] = useState(false);
 
-  const handleProgress = useCallback((p: number) => setLoadPct(p), []);
+  const handleProgress = useCallback((p: number) => {
+    loadPctRef.current = p;
+  }, []);
   const handleReady = useCallback(() => setSceneReady(true), []);
   const handleExit = useCallback(() => setRevealed(true), []);
   const handleDone = useCallback(() => setBooted(true), []);
@@ -56,15 +70,17 @@ export default function Hero() {
     };
   }, [booted]);
 
-  const lastMoveRef = useRef(Date.now());
-  useEffect(() => {
-    lastMoveRef.current = Date.now();
-  }, [loadPct]);
-
   useEffect(() => {
     if (sceneReady) return;
+    let lastSeen = loadPctRef.current;
+    let lastMoved = Date.now();
     const id = setInterval(() => {
-      if (Date.now() - lastMoveRef.current > STALL_MS) setSceneReady(true);
+      if (loadPctRef.current !== lastSeen) {
+        lastSeen = loadPctRef.current;
+        lastMoved = Date.now();
+      } else if (Date.now() - lastMoved > STALL_MS) {
+        setSceneReady(true);
+      }
     }, 2000);
     return () => clearInterval(id);
   }, [sceneReady]);
@@ -255,7 +271,7 @@ export default function Hero() {
 
       {!booted && (
         <Loader
-          progress={loadPct}
+          progressRef={loadPctRef}
           ready={sceneReady}
           onExit={handleExit}
           onDone={handleDone}

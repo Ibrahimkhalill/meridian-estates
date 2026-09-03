@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Instance, Instances } from '@react-three/drei';
 import { useTiled, useSurface, useArt } from './useTextures';
 import {
   Artwork,
@@ -56,6 +55,8 @@ export default function Villa({ night }: { night: boolean }) {
   const cladding = useSurface([9, 4], 'planks', 0.85);
   // faint surface ripple for the pool — normals only, no colour
   const ripple = useSurface([9, 3], 'concrete', 0.14);
+  // clipped hedging: relief only, so `color` still drives the hue
+  const hedge = useSurface([4, 4], 'grass', 0.95);
 
   const warm = night ? '#FFB861' : '#FFF3E2';
   const lamp = night ? 3.4 : 2.2;
@@ -65,48 +66,32 @@ export default function Villa({ night }: { night: boolean }) {
    * units out — (30,40), (-24,34), (-30,16), (-6,30), (16,26), (1.4,15) — and
    * trees were scattered from 30 units, so the swing flew straight through
    * them and a trunk filled the middle of the establishing shot. Anything in
-   * front of the house therefore has to sit outside that arc; behind it, where
-   * the camera never goes, trees can come in close and give the plot depth.
+   * front of the house therefore has to sit outside that arc.
+   *
+   * Nothing stands directly behind the house any more. Massed canopies back
+   * there filled the sky above the roofline, and since the camera faces the
+   * building for the whole outdoor sequence they were in almost every frame —
+   * close enough to be read as objects rather than as distance, and at that
+   * size the difference between a tree and a green blob is a lot of geometry
+   * this scene cannot spend. The planting now sits to the sides and out in
+   * front, where it frames the house instead of crowding it, and the depth
+   * behind comes from the fog and the land beyond it.
    */
   const trees = useMemo(() => {
-    return seededScatter(30, 11)
+    return seededScatter(34, 11)
       .map(({ a, b, c, d }) => {
         const angle = a * Math.PI * 2;
-        const front = Math.sin(angle) > -0.15;
-        const dist = front ? 60 + b * 36 : 26 + b * 44;
         return {
-          x: Math.cos(angle) * dist,
-          z: Math.sin(angle) * dist - 8,
+          x: Math.cos(angle) * (58 + b * 46),
+          z: Math.sin(angle) * (58 + b * 46) - 8,
           h: 6 + c * 7,
           r: 1.6 + d * 1.3,
         };
       })
-      // Never let one land on the house itself.
-      .filter((t) => Math.abs(t.x) > 22 || t.z < -14 || t.z > 26);
+      // Clear of the house, and clear of the wedge directly behind it that the
+      // camera looks straight through.
+      .filter((t) => (Math.abs(t.x) > 22 || t.z > 26) && !(t.z < -30 && Math.abs(t.x) < 46));
   }, []);
-
-  /**
-   * A ring of canopy masses standing well beyond the camera arc. Weighted to
-   * the back of the plot: the camera always faces the house, so what sits
-   * behind it is on screen for the whole outdoor sequence, while the ground
-   * behind the camera is never seen at all.
-   */
-  const treeline = useMemo(
-    () =>
-      seededScatter(150, 907).map(({ a, b, c, d }) => {
-        const angle = a * Math.PI * 2;
-        const behind = Math.sin(angle) < 0;
-        const dist = (behind ? 112 : 140) + b * (behind ? 96 : 76);
-        return {
-          x: Math.cos(angle) * dist,
-          z: Math.sin(angle) * dist - 6,
-          h: 6 + c * 6.5,
-          r: 2.7 + d * 2.5,
-          spin: c * 6.283,
-        };
-      }),
-    []
-  );
 
   /** Land beyond the treeline, deep enough into the fog to read as distance. */
   const hills = useMemo(
@@ -494,31 +479,13 @@ export default function Villa({ night }: { night: boolean }) {
           color={warm}
         />
 
-        {/* ---- pendants over the table ----
-             A dining table with nothing above it reads as a table in a room
-             rather than a dining room, and at this camera height the drop is
-             right in the upper third of frame. */}
-        {[2.6, 3.6, 4.6].map((x) => (
-          <group key={`pd${x}`} position={[x, 0, 0.6]}>
-            <mesh position={[0, 2.5, 0]}>
-              <cylinderGeometry args={[0.011, 0.011, 1.0, 6]} />
-              <meshStandardMaterial color="#2E2E2C" roughness={0.5} />
-            </mesh>
-            <mesh position={[0, 1.94, 0]} castShadow>
-              <cylinderGeometry args={[0.07, 0.19, 0.24, 18]} />
-              <meshStandardMaterial color="#3A3833" roughness={0.35} metalness={0.55} />
-            </mesh>
-            <mesh position={[0, 1.83, 0]}>
-              <sphereGeometry args={[0.055, 10, 10]} />
-              <meshStandardMaterial
-                color={warm}
-                emissive={warm}
-                emissiveIntensity={night ? 3.2 : 1.1}
-                roughness={0.4}
-              />
-            </mesh>
-          </group>
-        ))}
+        {/* No pendants over the dining table, and they are not coming back:
+            the table sits beneath the staircase. The flight passes over it
+            between y 2.76 and 3.73, and a drop long enough to hang at eating
+            height starts above that — so the cords ran straight through the
+            treads and showed up as two black rods standing in the middle of
+            the stair on the way up. Anywhere on this table is under the
+            flight, so there is no position that works. */}
 
         {/* ---- things on the surfaces ----
              Bare tabletops are the last thing that says "showhome model". */}
@@ -1085,22 +1052,27 @@ export default function Villa({ night }: { night: boolean }) {
             <boxGeometry args={[2.6, 0.7, 1.2]} />
             <meshStandardMaterial {...concrete} color="#E8E5DD" roughness={0.9} />
           </mesh>
-          {/* Planting, not a green lid. A flat box on top of the trough reads
-              as painted cardboard; a handful of overlapping clumps at varied
-              heights gives the ragged top edge that says "shrub". */}
-          {seededScatter(9, x + 31).map(({ a, b, c, d }, i) => (
-            <mesh
-              key={i}
-              position={[(a - 0.5) * 2.2, 0.74 + c * 0.20, (b - 0.5) * 0.8]}
-              scale={[1, 0.62, 1]}
-              castShadow
-            >
-              <icosahedronGeometry args={[0.26 + d * 0.18, 1]} />
-              <meshStandardMaterial
-                color={['#3E5A33', '#4A6B3C', '#375029'][i % 3]}
-                roughness={1}
-              />
-            </mesh>
+          {/* Clipped, not clumped. Overlapping spheres were meant to read as
+              a shrub's ragged top; at this scale they read as green bubbles.
+              A house with this much straight line in it would be planted with
+              clipped hedging anyway, and a crisp box with a lighter top face
+              is both more honest to the architecture and far more convincing
+              than a pile of icosahedra. */}
+          {[-0.78, 0, 0.78].map((sx, i) => (
+            <group key={sx} position={[sx, 0, 0]}>
+              <mesh position={[0, 0.94, 0]} castShadow receiveShadow>
+                <boxGeometry args={[0.7, 0.48, 0.92]} />
+                <meshStandardMaterial
+                  {...hedge}
+                  color={['#33492C', '#374F2F', '#2E4429'][i % 3]}
+                  roughness={1}
+                />
+              </mesh>
+              <mesh position={[0, 1.185, 0]} receiveShadow>
+                <boxGeometry args={[0.63, 0.03, 0.85]} />
+                <meshStandardMaterial {...hedge} color="#3E5836" roughness={1} />
+              </mesh>
+            </group>
           ))}
         </group>
       ))}
@@ -1133,22 +1105,6 @@ export default function Villa({ night }: { night: boolean }) {
         </mesh>
       ))}
 
-      {/* ---- treeline ----
-           One draw call for the lot. At this distance a trunk is well under a
-           pixel wide, so these are canopy masses only; putting trunks on them
-           would cost the same again and change nothing on screen. */}
-      <Instances limit={220} range={treeline.length} castShadow={false}>
-        <icosahedronGeometry args={[1, 2]} />
-        <meshStandardMaterial color={night ? '#22301F' : '#41562F'} roughness={1} flatShading />
-        {treeline.map((t, i) => (
-          <Instance
-            key={i}
-            position={[t.x, t.h * 0.52, t.z]}
-            scale={[t.r, t.h * 0.62, t.r]}
-            rotation={[0, t.spin, 0]}
-          />
-        ))}
-      </Instances>
 
       {/* ---- garden walk ----
            A path running the width of the plot, parallel to the terrace. It
@@ -1189,21 +1145,26 @@ export default function Villa({ night }: { night: boolean }) {
             <boxGeometry args={[w, 0.1, 2.4]} />
             <meshStandardMaterial {...concrete} color="#6E6355" roughness={1} />
           </mesh>
-          {seededScatter(Math.round(w * 1.6), cx + 41).map(({ a, b, c, d }, i) => (
-            <mesh
-              key={i}
-              position={[(a - 0.5) * (w - 1), 0.34 + c * 0.16, (b - 0.5) * 1.7]}
-              scale={[1, 0.6, 1]}
-              castShadow
-              receiveShadow
-            >
-              <icosahedronGeometry args={[0.42 + d * 0.22, 1]} />
-              <meshStandardMaterial
-                color={['#3E5A33', '#48663A', '#354D28'][i % 3]}
-                roughness={1}
-              />
-            </mesh>
-          ))}
+          {Array.from({ length: Math.round(w / 3.2) }, (_, i) => {
+            const n = Math.round(w / 3.2);
+            const seg = (w - 0.6) / n;
+            return (
+              <group key={i} position={[-(w - 0.6) / 2 + seg * (i + 0.5), 0, 0]}>
+                <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
+                  <boxGeometry args={[seg - 0.22, 0.52, 1.9]} />
+                  <meshStandardMaterial
+                    {...hedge}
+                    color={['#33492C', '#374F2F', '#2E4429'][i % 3]}
+                    roughness={1}
+                  />
+                </mesh>
+                <mesh position={[0, 0.625, 0]} receiveShadow>
+                  <boxGeometry args={[seg - 0.32, 0.03, 1.78]} />
+                  <meshStandardMaterial {...hedge} color="#3E5836" roughness={1} />
+                </mesh>
+              </group>
+            );
+          })}
         </group>
       ))}
 
@@ -1275,24 +1236,24 @@ export default function Villa({ night }: { night: boolean }) {
       {trees.map((t, i) => (
         <Tree key={i} position={[t.x, 0, t.z]} height={t.h} radius={t.r} seed={i} barkProps={bark} />
       ))}
-      {/* Hedge beds at either end of the terrace — same reasoning as the
-          troughs: clumps, so the silhouette breaks up against the lawn. */}
+      {/* Clipped hedge blocks closing either end of the terrace. */}
       {[-25, 23].map((x) => (
         <group key={x} position={[x, 0, 10]}>
-          {seededScatter(22, x + 77).map(({ a, b, c, d }, i) => (
-            <mesh
-              key={i}
-              position={[(a - 0.5) * 3.2, 0.42 + c * 0.34, (b - 0.5) * 6.8]}
-              scale={[1, 0.58, 1]}
-              castShadow
-              receiveShadow
-            >
-              <icosahedronGeometry args={[0.66 + d * 0.36, 1]} />
-              <meshStandardMaterial
-                color={['#3E5A33', '#48663A', '#354D28'][i % 3]}
-                roughness={1}
-              />
-            </mesh>
+          {[-2.45, 0, 2.45].map((z, i) => (
+            <group key={z} position={[0, 0, z]}>
+              <mesh position={[0, 0.52, 0]} castShadow receiveShadow>
+                <boxGeometry args={[2.6, 1.04, 2.15]} />
+                <meshStandardMaterial
+                  {...hedge}
+                  color={['#33492C', '#374F2F', '#2E4429'][i % 3]}
+                  roughness={1}
+                />
+              </mesh>
+              <mesh position={[0, 1.055, 0]} receiveShadow>
+                <boxGeometry args={[2.45, 0.03, 2.02]} />
+                <meshStandardMaterial {...hedge} color="#3E5836" roughness={1} />
+              </mesh>
+            </group>
           ))}
         </group>
       ))}

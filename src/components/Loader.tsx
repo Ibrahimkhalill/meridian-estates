@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
 /** How long the curtain takes to clear once it starts leaving. */
@@ -11,8 +11,12 @@ interface LoaderProps {
    * 0–100 from three's loading manager, or null while the scene's own
    * JavaScript chunk is still on the wire — at that point nothing has been
    * queued yet, so there is genuinely no figure to report.
+   *
+   * A ref rather than a value: it changes once per file loaded, and pushing
+   * that through React re-rendered the whole scene each time. The frame loop
+   * below has to run anyway, so it reads it there. See Hero.
    */
-  progress: number | null;
+  progressRef: RefObject<number | null>;
   /** True once the scene has actually put a frame on the screen. */
   ready: boolean;
   /** Fires as the wipe starts, so the hero copy can animate in behind it. */
@@ -21,7 +25,7 @@ interface LoaderProps {
   onDone: () => void;
 }
 
-export default function Loader({ progress, ready, onExit, onDone }: LoaderProps) {
+export default function Loader({ progressRef, ready, onExit, onDone }: LoaderProps) {
   const [shown, setShown] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const targetRef = useRef(0);
@@ -43,40 +47,48 @@ export default function Loader({ progress, ready, onExit, onDone }: LoaderProps)
   }, []);
 
   /**
-   * The loading manager discovers work as it goes: it will report 100% of the
-   * four files it knows about, then drop to 40% when the next batch is queued.
-   * Letting the figure run backwards reads as a fault, so the target only ever
-   * climbs.
+   * Latched once the manager reports a figure above zero. The manager can
+   * momentarily report zero again as it queues more work, and without the
+   * latch the card would flip back to the indeterminate sweep, throw away the
+   * figure it was showing and re-label itself — a visible stutter each time a
+   * new batch started.
    */
-  useEffect(() => {
-    const next = ready ? 100 : progress ?? 0;
-    if (next > targetRef.current) targetRef.current = next;
-  }, [progress, ready]);
+  const [counting, setCounting] = useState(false);
+  const countingRef = useRef(false);
 
-  // Chase the target rather than snapping to it — the figure moves the whole
-  // time, instead of sitting still through a slow file and then jumping. Once
-  // the villa is up it closes twice as fast, so the last stretch to 100 is not
-  // what the visitor ends up waiting on.
+  /**
+   * One frame loop does everything: reads the manager, keeps the target
+   * monotonic — it reports 100% of the four files it knows about, then drops
+   * to 40% when the next batch is queued, and a figure that runs backwards
+   * reads as a fault — and eases the displayed number toward it, so the count
+   * moves the whole time instead of sitting still through a slow file and then
+   * jumping. Once the villa is up it closes twice as fast, so the last stretch
+   * to 100 is not what the visitor ends up waiting on.
+   */
   const readyRef = useRef(false);
   readyRef.current = ready;
 
   useEffect(() => {
-    if (reduced.current) return;
     let raf = 0;
     const tick = () => {
+      const raw = progressRef.current ?? 0;
+      if (raw > 0 && !countingRef.current) {
+        countingRef.current = true;
+        setCounting(true);
+      }
+      const next = readyRef.current ? 100 : raw;
+      if (next > targetRef.current) targetRef.current = next;
+
       setShown((s) => {
         const t = targetRef.current;
+        if (reduced.current) return t;
         return t - s < 0.2 ? t : s + (t - s) * (readyRef.current ? 0.16 : 0.075);
       });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
-
-  useEffect(() => {
-    if (reduced.current) setShown(ready ? 100 : progress ?? 0);
-  }, [progress, ready]);
+  }, [progressRef]);
 
   /**
    * On a repeat visit everything is in cache and `ready` can arrive while the
@@ -119,15 +131,8 @@ export default function Loader({ progress, ready, onExit, onDone }: LoaderProps)
    * least informative thing the manager ever says — it means the queue is
    * filling and nothing has come back yet. That is what the travelling
    * highlight is for.
-   *
-   * It latches: the manager can momentarily report zero again as it queues more
-   * work, and without the latch the card would flip back to the sweep, throw
-   * away the figure it was showing, and re-label itself — a visible stutter
-   * every time a new batch started.
    */
-  const counting = useRef(false);
-  if (progress) counting.current = true;
-  const indeterminate = !ready && !counting.current;
+  const indeterminate = !ready && !counting;
 
   /**
    * Each of these is a phase that is actually happening. The gap between "all
