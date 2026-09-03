@@ -94,6 +94,22 @@ export default function Scene({ night, progressRef, onProgress, onReady }: Scene
   const [visible, setVisible] = useState(true);
   const [reduced, setReduced] = useState(false);
 
+  /**
+   * Decided once, during the first render, so nothing has to be rebuilt after
+   * the fact — changing the shadow sample count later would recompile the
+   * shader for no reason.
+   *
+   * A phone runs percentage-closer soft shadows, an ambient-occlusion pass and
+   * antialiasing over three device pixels per CSS pixel. Halving the pixels
+   * and the shadow work is the difference between a walkthrough and a
+   * slideshow, and none of it is visible on a screen that size.
+   */
+  const [lowPower] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(max-width: 820px), (pointer: coarse)').matches
+  );
+
   useEffect(() => {
     setReduced(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }, []);
@@ -125,7 +141,9 @@ export default function Scene({ night, progressRef, onProgress, onReady }: Scene
       <Canvas
         shadows
         // Cap DPR at 2 — high-density laptops otherwise render 9x the pixels.
-        dpr={[1, 2]}
+        // Phones are capped harder still: at 3x a 390-wide screen is 1170
+        // pixels across, every one of them going through the whole stack.
+        dpr={lowPower ? [1, 1.5] : [1, 2]}
         camera={{ fov: 42, near: 0.1, far: 400, position: [26, 11, 26] }}
         frameloop={visible ? 'always' : 'never'}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
@@ -137,7 +155,7 @@ export default function Scene({ night, progressRef, onProgress, onReady }: Scene
         <Suspense fallback={null}>
           {/* Percentage-closer soft shadows: penumbra widens with distance,
               which is most of what separates a render from a diagram. */}
-          <SoftShadows size={26} samples={12} focus={0.9} />
+          <SoftShadows size={26} samples={lowPower ? 7 : 12} focus={0.9} />
           {/* The sky is the backdrop AND the reflection source. This single
               choice does more for realism than any number of point lights. */}
           <Environment
@@ -152,7 +170,7 @@ export default function Scene({ night, progressRef, onProgress, onReady }: Scene
             intensity={night ? 0.12 : 2.4}
             color={night ? '#9BB6E8' : '#FFF6E8'}
             castShadow
-            shadow-mapSize={[2048, 2048]}
+            shadow-mapSize={lowPower ? [1024, 1024] : [2048, 2048]}
             shadow-camera-left={-60}
             shadow-camera-right={60}
             shadow-camera-top={60}
@@ -182,7 +200,7 @@ export default function Scene({ night, progressRef, onProgress, onReady }: Scene
             blur={2.6}
             opacity={night ? 0.18 : 0.28}
             far={10}
-            resolution={1024}
+            resolution={lowPower ? 512 : 1024}
           />
 
           {!reduced && (
@@ -200,6 +218,10 @@ export default function Scene({ night, progressRef, onProgress, onReady }: Scene
               distanceFalloff={0.9}
               intensity={night ? 2.2 : 2.8}
               halfRes
+              // Already half resolution for everyone; on a phone the ray count
+              // comes down too, which is the part that actually costs.
+              aoSamples={lowPower ? 8 : 16}
+              denoiseSamples={lowPower ? 2 : 4}
               color="#2A2519"
             />
             <BrightnessContrast brightness={0.01} contrast={0.06} />

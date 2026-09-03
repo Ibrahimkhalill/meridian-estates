@@ -35,10 +35,16 @@ export default function Footer() {
           {COLUMNS.map((col) => (
             <nav key={col.heading} aria-label={col.heading}>
               <h2 className="text-xs uppercase tracking-[0.16em] text-muted">{col.heading}</h2>
-              <ul className="mt-5 space-y-3">
+              {/* Roomier rows on a phone: at 18px tall these were well under
+                  any thumb-sized target. The extra padding does the work, so
+                  the type and the rhythm are unchanged on a desktop. */}
+              <ul className="mt-3 space-y-0 sm:mt-5 sm:space-y-3">
                 {col.links.map((l) => (
                   <li key={l}>
-                    <a href="#" className="text-sm text-ink/80 transition-colors hover:text-ink">
+                    <a
+                      href="#"
+                      className="-mx-2 inline-block px-2 py-2.5 text-sm text-ink/80 transition-colors hover:text-ink sm:mx-0 sm:px-0 sm:py-0"
+                    >
                       {l}
                     </a>
                   </li>

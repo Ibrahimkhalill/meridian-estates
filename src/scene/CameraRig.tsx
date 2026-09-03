@@ -115,6 +115,15 @@ function pace(t: number) {
   return t;
 }
 
+/**
+ * The aspect the path was framed against, the widest lens that still reads as
+ * a photograph rather than a fisheye, and how far back the camera may stand to
+ * make up the rest.
+ */
+const REF_ASPECT = 1.7;
+const MAX_FOV = 70;
+const MAX_PULL = 1.85;
+
 interface CameraRigProps {
   progressRef: RefObject<number>;
   pointerRef: RefObject<{ x: number; y: number }>;
@@ -135,21 +144,66 @@ export default function CameraRig({ progressRef, pointerRef }: CameraRigProps) {
     posCurve.getPoint(t, desired.current);
     lookCurve.getPoint(t, target.current);
 
-    // Pointer parallax outdoors only — indoors it reads as nausea.
-    const drift = Math.max(0, 1 - t * 1.6) * 3.2;
-    const p = pointerRef.current ?? { x: 0, y: 0 };
-    desired.current.x += p.x * drift;
-    desired.current.y += -p.y * drift * 0.4;
-
     // A 42-degree lens indoors frames a wall; widen toward 62 once inside so
     // the whole room reads, the way an agent would show you the space.
     const indoors = THREE.MathUtils.clamp((t - INDOORS_FROM) / 0.2, 0, 1);
-    const wantFov = 42 + indoors * 20;
+    const designFov = 42 + indoors * 20;
     const cam = camera as THREE.PerspectiveCamera;
+
+    /**
+     * ---- framing for the screen it is actually on ----
+     *
+     * Every waypoint above was judged on a landscape window, and a fov is
+     * vertical: the horizontal field falls out of it times the aspect. At
+     * 1440x830 that 42 degrees covers 66 degrees across; on a portrait phone
+     * at 390x844 the same lens covers 19. The villa arrived as a vertical
+     * slice of itself with no way to tell what the building was.
+     *
+     * So hold the horizontal field constant instead. Widen the lens as far as
+     * is tolerable — past about 70 degrees vertical the perspective starts to
+     * bend and it stops looking like architectural photography — and cover
+     * whatever is left by standing further back.
+     *
+     * The stand-back only applies outdoors. Indoors it would reverse the
+     * camera through a wall, and a tall lens in a room is the right answer
+     * anyway: it shows floor to ceiling, which is what a room needs.
+     */
+    const aspect = cam.aspect || REF_ASPECT;
+    const wantAcross =
+      2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(designFov) / 2) * REF_ASPECT);
+    const fovForAcross = THREE.MathUtils.radToDeg(
+      2 * Math.atan(Math.tan(wantAcross / 2) / aspect)
+    );
+    const wantFov = Math.min(fovForAcross, MAX_FOV);
+
     if (Math.abs(cam.fov - wantFov) > 0.05) {
       cam.fov += (wantFov - cam.fov) * 0.08;
       cam.updateProjectionMatrix();
     }
+
+    const haveAcross =
+      2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(wantFov) / 2) * aspect);
+    const shortfall = Math.tan(wantAcross / 2) / Math.tan(haveAcross / 2);
+    const pull = 1 + (Math.min(shortfall, MAX_PULL) - 1) * (1 - indoors);
+    if (pull > 1.001) {
+      desired.current.sub(target.current).multiplyScalar(pull).add(target.current);
+      /**
+       * Standing back on a tall lens leaves the villa high in frame with half
+       * the screen below it as bare lawn. Raising the aim pitches the camera
+       * up, which brings the building down the frame and trades that lawn for
+       * sky — the same trick as tilting a view camera, and it centres the
+       * subject without moving it.
+       */
+      target.current.y += (pull - 1) * 4.4;
+    }
+
+    // Pointer parallax outdoors only — indoors it reads as nausea. After the
+    // stand-back, so the drift stays the same size on screen rather than being
+    // multiplied along with the distance.
+    const drift = Math.max(0, 1 - t * 1.6) * 3.2;
+    const p = pointerRef.current ?? { x: 0, y: 0 };
+    desired.current.x += p.x * drift;
+    desired.current.y += -p.y * drift * 0.4;
 
     camera.position.lerp(desired.current, 0.042);
     lookAt.current.lerp(target.current, 0.055);

@@ -163,7 +163,7 @@ export default function Hero() {
                     night ? 'text-on-dark' : 'text-ink'
                   }`}
                   style={{
-                    fontSize: 'clamp(38px, 5.4vw, 88px)',
+                    fontSize: 'clamp(33px, 5.4vw, 88px)',
                     lineHeight: 1.02,
                     letterSpacing: '-0.03em',
                     // Belt and braces over a moving background: the scrim does the
@@ -207,10 +207,15 @@ export default function Hero() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-end justify-between gap-6">
+              {/* On a phone this row is the day/night toggle only. "Book a
+                viewing" is a 180px pill next to a 145px toggle in 350px of
+                usable width, so it wrapped onto two lines and pushed the
+                toggle under it; the same call to action sits in the CTA
+                section further down, where it has the room. */}
+            <div className="flex flex-wrap items-end justify-between gap-6">
                 <button
                   type="button"
-                  className="a-fade-up d-600 pointer-events-auto group inline-flex items-center gap-3 rounded-full bg-moss px-8 py-4 text-sm font-medium text-on-dark transition-colors hover:bg-moss-hover"
+                  className="a-fade-up d-600 pointer-events-auto group hidden items-center gap-3 rounded-full bg-moss px-8 py-4 text-sm font-medium text-on-dark transition-colors hover:bg-moss-hover sm:inline-flex"
                 >
                   Book a viewing
                   <ArrowRight
@@ -251,10 +256,14 @@ export default function Hero() {
           </div>
         )}
 
-        {/* scroll hint */}
+        {/* Scroll hint. Hidden on a phone: it is centred at the bottom, which
+            is exactly where the day/night toggle sits once that row stops
+            having room to spread out — the two printed on top of each other.
+            The hero copy already says to scroll, and on a phone scrolling is
+            not a thing anyone needs prompting to try. */}
         {revealed && (
           <div
-            className={`pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 transition-opacity duration-500 ${
+            className={`pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 transition-opacity duration-500 sm:block ${
               hintGone ? 'opacity-0' : 'opacity-100'
             }`}
           >
