@@ -1,11 +1,12 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   Environment,
   ContactShadows,
   AdaptiveDpr,
   SoftShadows,
   Preload,
+  useProgress,
 } from '@react-three/drei';
 import {
   EffectComposer,
@@ -20,10 +21,11 @@ import * as THREE from 'three';
 import Villa from './Villa';
 import CameraRig from './CameraRig';
 
-const HDRI_DAY =
-  'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloofendal_43d_clear_puresky_1k.hdr';
-const HDRI_NIGHT =
-  'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/dikhololo_night_1k.hdr';
+// Poly Haven skies (CC0), served from this site rather than their CDN: it is
+// one less origin to resolve and connect to before anything can be drawn, and
+// the night sky is only fetched if someone actually asks for dusk.
+const HDRI_DAY = '/hdri/day.hdr';
+const HDRI_NIGHT = '/hdri/night.hdr';
 
 /**
  * three.js needs a second UV channel for aoMap. Box and plane geometries only
@@ -44,12 +46,49 @@ function EnableAoMaps() {
   return null;
 }
 
+/**
+ * Reports three's loading manager to the DOM overlay. It lives outside the
+ * Canvas on purpose: `useProgress` re-renders on every file that lands, and
+ * there is no reason to push that through the R3F tree.
+ *
+ * Both of these are here rather than in Hero because `useProgress` and
+ * `useFrame` come from drei and fiber, and Hero is in the main bundle — the
+ * whole point of loading this module lazily is to keep three out of there.
+ */
+function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
+  const { progress } = useProgress();
+  useEffect(() => {
+    onProgress(progress);
+  }, [progress, onProgress]);
+  return null;
+}
+
+/**
+ * Assets being downloaded is not the same as the villa being on screen: the
+ * shaders still have to compile, which on a cold GPU cache is its own visible
+ * stall. Sitting inside the Suspense boundary means this only mounts once
+ * every texture has resolved, and waiting a few frames past that covers the
+ * compile — so the overlay lifts on a drawn frame, not on an empty canvas.
+ */
+function ReadySignal({ onReady }: { onReady: () => void }) {
+  const frames = useRef(0);
+  const fired = useRef(false);
+  useFrame(() => {
+    if (fired.current || ++frames.current < 6) return;
+    fired.current = true;
+    onReady();
+  });
+  return null;
+}
+
 interface SceneProps {
   night: boolean;
   progressRef: React.RefObject<number>;
+  onProgress: (p: number) => void;
+  onReady: () => void;
 }
 
-export default function Scene({ night, progressRef }: SceneProps) {
+export default function Scene({ night, progressRef, onProgress, onReady }: SceneProps) {
   const pointerRef = useRef({ x: 0, y: 0 });
   const wrapRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
@@ -82,6 +121,7 @@ export default function Scene({ night, progressRef }: SceneProps) {
 
   return (
     <div ref={wrapRef} onPointerMove={handlePointer} className="absolute inset-0">
+      <ProgressReporter onProgress={onProgress} />
       <Canvas
         shadows
         // Cap DPR at 2 — high-density laptops otherwise render 9x the pixels.
@@ -170,6 +210,7 @@ export default function Scene({ night, progressRef }: SceneProps) {
 
           <AdaptiveDpr pixelated />
           <Preload all />
+          <ReadySignal onReady={onReady} />
         </Suspense>
       </Canvas>
     </div>

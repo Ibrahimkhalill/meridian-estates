@@ -24,3 +24,19 @@
     transform: none !important; filter: none !important;
   }
 }
+
+/* ---------- boot loader ----------
+   The scene pulls ~16 MB of PBR textures and an HDRI before it can show
+   anything, so the first visit has a real wait behind it. Until the loading
+   manager reports a first item there is no number to show, and inventing one
+   would be a lie — a travelling highlight says "working" without claiming to
+   know how far along it is. */
+@keyframes a-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.a-sweep { animation: a-sweep 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .a-sweep { animation: none !important; }
+}

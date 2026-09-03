@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="booting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,8 +8,70 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+    <!-- Boot card. The app bundle plus the scene chunk is a real wait on a thin
+         connection, and until React has mounted there is nothing to look at but
+         white. This is the same card Loader.tsx draws, inlined so it lands on
+         the very first paint. Loader removes it on mount, and because the two
+         are drawn to the same measurements the handover is not visible — every
+         value below is the computed equivalent of a Tailwind class over there,
+         so the two files have to be changed together. -->
+    <style>
+      /* Held still until the villa is up, so nobody scrolls through the whole
+         camera journey behind the card and arrives already inside. */
+      .booting, .booting body { overflow: hidden; }
+
+      #boot { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center;
+              justify-content: center; padding: 0 24px; background: #F6F5F2; }
+      #boot .col { width: 100%; max-width: 360px; text-align: center; }
+      #boot p { margin: 0; }
+
+      #boot .mark { display: flex; align-items: flex-start; justify-content: center;
+                    font-family: 'Instrument Serif', serif; font-size: 24px; line-height: 32px;
+                    letter-spacing: -0.025em; color: #16150F; }
+      #boot .mark span { margin-left: 2px; font-size: 0.5em; color: #3D5A45; }
+
+      /* A counter at rest, in the muted tone: nothing has been counted yet, and
+         an empty space here would read as a layout fault. */
+      #boot .figure { margin-top: 48px; font-family: 'Instrument Serif', serif;
+                      font-size: clamp(52px, 7vw, 84px); line-height: 1; letter-spacing: -0.035em;
+                      color: rgba(110, 107, 97, 0.35); }
+      #boot .figure span { font-size: 0.26em; vertical-align: top;
+                           color: rgba(110, 107, 97, 0.25); }
+
+      #boot .rule { position: relative; margin-top: 24px; height: 1px; background: #DEDBD4; }
+      #boot .rule b { position: absolute; top: 50%; height: 5px; width: 1px; margin-top: -2.5px;
+                      background: #DEDBD4; }
+      #boot .rule i { position: absolute; top: 0; bottom: 0; left: 0; width: 25%; background: #16150F;
+                      animation: boot-sweep 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+
+      #boot .status { margin-top: 20px; font-family: 'Instrument Sans', sans-serif; font-size: 11px;
+                      line-height: 1.5; text-transform: uppercase; letter-spacing: 0.18em;
+                      color: #6E6B61; }
+
+      #boot .lede { margin: 40px auto 0; max-width: 30ch; font-family: 'Instrument Sans', sans-serif;
+                    font-size: 13px; line-height: 1.625; color: rgba(110, 107, 97, 0.8); }
+
+      @keyframes boot-sweep { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+
+      @media (min-width: 768px) { #boot .mark { font-size: 30px; line-height: 36px; } }
+      @media (prefers-reduced-motion: reduce) { #boot .rule i { animation: none; } }
+    </style>
   </head>
   <body>
+    <div id="boot" role="status" aria-live="polite" aria-busy="true">
+      <div class="col">
+        <p class="mark">MERIDIAN<span>&deg;</span></p>
+        <p class="figure" aria-hidden="true">00<span>%</span></p>
+        <div class="rule">
+          <b style="left: 25%"></b><b style="left: 50%"></b><b style="left: 75%"></b>
+          <i></i>
+        </div>
+        <p class="status">Preparing</p>
+        <p class="lede">Architect-designed residences. Walk inside without leaving your chair.</p>
+      </div>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

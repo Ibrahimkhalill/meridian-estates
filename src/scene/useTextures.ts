@@ -3,39 +3,64 @@ import { useTexture } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const BASE = 'https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k';
+/**
+ * These began as Poly Haven's 1k JPEG sets (CC0) pulled straight from their CDN,
+ * which came to 14.8 MB before a single frame could be drawn. They are now
+ * served from this site as 512px WebP — 1.7 MB for the same thirty files, an
+ * 88% cut — because the on-screen texel density here is set by each surface's
+ * `repeat`, not by the source resolution, so the extra pixels were being thrown
+ * away by the sampler anyway. See the note on preloading at the foot of this
+ * file for why they are all requested at once.
+ */
+const BASE = '/textures';
 
 /**
- * Poly Haven PBR sets (CC0, CORS-enabled). Three maps per surface:
- *   diff    colour
- *   nor_gl  normals — the surface relief. Without this everything reads as
- *           flat plastic no matter how good the colour is.
- *   arm     ambient occlusion / roughness / metalness packed into RGB
+ * Three maps per surface:
+ *   diff  colour
+ *   nor   normals — the surface relief. Without this everything reads as flat
+ *         plastic no matter how good the colour is.
+ *   arm   ambient occlusion / roughness / metalness packed into RGB
  *
  * Little Workshop's showroom ships albedo + normal + metallic-smoothness for
  * every single surface — there is no untextured material anywhere in it. That
  * is most of why it reads as photographic, so nothing here goes bare either.
  */
 const set = (name: string) => ({
-  map: `${BASE}/${name}/${name}_diff_1k.jpg`,
-  normalMap: `${BASE}/${name}/${name}_nor_gl_1k.jpg`,
-  aoMap: `${BASE}/${name}/${name}_arm_1k.jpg`,
-  roughnessMap: `${BASE}/${name}/${name}_arm_1k.jpg`,
+  map: `${BASE}/${name}/diff.webp`,
+  normalMap: `${BASE}/${name}/nor.webp`,
+  aoMap: `${BASE}/${name}/arm.webp`,
+  roughnessMap: `${BASE}/${name}/arm.webp`,
 });
 
 export const TEXTURE_SETS = {
-  concrete: set('concrete_floor_worn_001'),
-  stone: set('stone_brick_wall_001'),
-  woodFloor: set('wood_floor_deck'),
-  grass: set('aerial_grass_rock'),
-  bark: set('bark_brown_02'),
-  plaster: set('painted_plaster_wall'),
-  planks: set('wood_planks'),
-  oak: set('oak_veneer_01'),
-  fabric: set('fabric_leather_02'),
-  carpet: set('dirty_carpet'),
-  marble: set('marble_01'),
+  concrete: set('concrete'),
+  stone: set('stone'),
+  grass: set('grass'),
+  bark: set('bark'),
+  plaster: set('plaster'),
+  planks: set('planks'),
+  oak: set('oak'),
+  fabric: set('fabric'),
+  carpet: set('carpet'),
+  marble: set('marble'),
 };
+
+/**
+ * Every texture is requested the moment this module is evaluated, rather than
+ * when the component that happens to need it first mounts.
+ *
+ * The obvious reason is that thirty parallel requests beat five waves of six.
+ * The less obvious one is that it is the only way the loading figure can mean
+ * anything: three's loading manager reports loaded/total, and `total` only
+ * counts what has been queued so far. Mounting components in waves makes that
+ * fraction reach 100% at the end of every wave, so the number on the loading
+ * screen hit 100 within a second and then sat there for the rest of the load.
+ * Queueing the lot up front gives the manager the real denominator from the
+ * start.
+ */
+useTexture.preload([
+  ...new Set(Object.values(TEXTURE_SETS).flatMap((s) => Object.values(s))),
+]);
 
 /** Repeats a loaded set and returns props ready to spread onto a material. */
 export function useTiled(
