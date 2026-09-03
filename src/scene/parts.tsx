@@ -245,3 +245,54 @@ export const seededScatter = (count: number, seed: number) => {
 
 export const DEG = Math.PI / 180;
 export const _unused = THREE;
+
+/**
+ * A framed picture on a wall.
+ *
+ * Real rooms are dated by what is hung in them, and an empty plaster wall is
+ * the clearest tell that an interior was modelled rather than lived in. This is
+ * a moulding, a mount board and the canvas — three boxes — but the mount is
+ * what does the work: a picture that runs to the edge of its frame reads as a
+ * poster, and one floating inside a border reads as framed.
+ *
+ * The width comes from the texture's own proportions rather than a prop, so a
+ * portrait canvas cannot be stretched into a landscape frame — the single
+ * thing that would give the whole trick away.
+ */
+export function Artwork({
+  position,
+  rotation = [0, 0, 0],
+  height = 1.4,
+  map,
+  moulding = '#2B2824',
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  height?: number;
+  map: THREE.Texture;
+  moulding?: string;
+}) {
+  const img = map.image as { width: number; height: number } | undefined;
+  const aspect = img && img.height ? img.width / img.height : 0.72;
+  const h = height;
+  const w = h * aspect;
+  const mat = 0.075;
+  const lip = 0.04;
+
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[w + (mat + lip) * 2, h + (mat + lip) * 2, 0.05]} />
+        <meshStandardMaterial color={moulding} roughness={0.35} metalness={0.15} />
+      </mesh>
+      <mesh position={[0, 0, 0.026]}>
+        <boxGeometry args={[w + mat * 2, h + mat * 2, 0.012]} />
+        <meshStandardMaterial color="#F4F1E9" roughness={0.95} />
+      </mesh>
+      <mesh position={[0, 0, 0.034]}>
+        <planeGeometry args={[w, h]} />
+        <meshStandardMaterial map={map} roughness={0.62} />
+      </mesh>
+    </group>
+  );
+}

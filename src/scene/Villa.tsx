@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
-import { useTiled, useSurface } from './useTextures';
+import { Instance, Instances } from '@react-three/drei';
+import { useTiled, useSurface, useArt } from './useTextures';
 import {
+  Artwork,
   Balustrade,
   Chair,
   CHARCOAL,
@@ -45,6 +47,7 @@ export default function Villa({ night }: { night: boolean }) {
   const fabric = useSurface([4, 3], 'fabric', 0.6);
   const carpet = useSurface([5, 4], 'carpet', 0.8);
   const marble = useTiled('marble', [2, 2]);
+  const art = useArt();
   // Painted joinery: relief and roughness only, so `color` still drives hue.
   const plasterFine = useSurface([6, 3]);
   const paint = useSurface([2, 2]);
@@ -66,7 +69,7 @@ export default function Villa({ night }: { night: boolean }) {
    * the camera never goes, trees can come in close and give the plot depth.
    */
   const trees = useMemo(() => {
-    return seededScatter(18, 11)
+    return seededScatter(30, 11)
       .map(({ a, b, c, d }) => {
         const angle = a * Math.PI * 2;
         const front = Math.sin(angle) > -0.15;
@@ -81,6 +84,45 @@ export default function Villa({ night }: { night: boolean }) {
       // Never let one land on the house itself.
       .filter((t) => Math.abs(t.x) > 22 || t.z < -14 || t.z > 26);
   }, []);
+
+  /**
+   * A ring of canopy masses standing well beyond the camera arc. Weighted to
+   * the back of the plot: the camera always faces the house, so what sits
+   * behind it is on screen for the whole outdoor sequence, while the ground
+   * behind the camera is never seen at all.
+   */
+  const treeline = useMemo(
+    () =>
+      seededScatter(150, 907).map(({ a, b, c, d }) => {
+        const angle = a * Math.PI * 2;
+        const behind = Math.sin(angle) < 0;
+        const dist = (behind ? 112 : 140) + b * (behind ? 96 : 76);
+        return {
+          x: Math.cos(angle) * dist,
+          z: Math.sin(angle) * dist - 6,
+          h: 6 + c * 6.5,
+          r: 2.7 + d * 2.5,
+          spin: c * 6.283,
+        };
+      }),
+    []
+  );
+
+  /** Land beyond the treeline, deep enough into the fog to read as distance. */
+  const hills = useMemo(
+    () =>
+      seededScatter(9, 313).map(({ a, b, c, d }) => {
+        const angle = a * Math.PI * 2;
+        const dist = 190 + b * 70;
+        return {
+          x: Math.cos(angle) * dist,
+          z: Math.sin(angle) * dist,
+          r: 42 + c * 46,
+          f: 0.26 + d * 0.2,
+        };
+      }),
+    []
+  );
 
   return (
     <group>
@@ -213,6 +255,12 @@ export default function Villa({ night }: { night: boolean }) {
           <boxGeometry args={[0.7, 0.84, 3.2]} />
           <meshStandardMaterial {...joinery} color="#C4B49B" roughness={0.55} />
         </mesh>
+        <Artwork
+          position={[6.16, 1.72, -1.6]}
+          rotation={[0, -Math.PI / 2, 0]}
+          height={1.15}
+          map={art.horizon}
+        />
         <Plant position={[4.6, 0, 2.4]} scale={1.2} />
         <Chair position={[2.6, 0, 1.4]} rotation={-1.1} />
       </group>
@@ -252,11 +300,32 @@ export default function Villa({ night }: { night: boolean }) {
         <meshStandardMaterial {...concrete} color="#D8D4CC" roughness={0.9} />
       </mesh>
 
-      {/* ---- ground-floor glazing, split around a 2.4-wide door ---- */}
+      {/* ---- ground-floor glazing ----
+           The room's front opening runs the full span between the stone cores,
+           x -5.69..7.69. Only the middle of it was glazed, so there were two
+           3.09-wide holes in the elevation with nothing in them — from square
+           on, the house read as though the glass had been taken out either
+           side of the door. These two panels close them. */}
+      <Glass position={[-4.145, GROUND_Y + 1.6, 1.9]} args={[3.09, 3.2, 0.06]} />
+      <Mullions position={[-4.145, GROUND_Y + 1.6, 1.97]} width={3.09} height={3.2} bays={2} />
       <Glass position={[-1.35, GROUND_Y + 1.6, 1.9]} args={[2.5, 3.2, 0.06]} />
       <Mullions position={[-1.35, GROUND_Y + 1.6, 1.97]} width={2.5} height={3.2} bays={1} />
       <Glass position={[3.6, GROUND_Y + 1.6, 1.9]} args={[2.0, 3.2, 0.06]} />
       <Mullions position={[3.6, GROUND_Y + 1.6, 1.97]} width={2.0} height={3.2} bays={1} />
+      <Glass position={[6.145, GROUND_Y + 1.6, 1.9]} args={[3.09, 3.2, 0.06]} />
+      <Mullions position={[6.145, GROUND_Y + 1.6, 1.97]} width={3.09} height={3.2} bays={2} />
+
+      {/* ---- the sliding leaf, parked open ----
+           The doorway has to stay clear because the camera walks through it,
+           but an unexplained 2.5-wide hole in a glass wall reads as a missing
+           pane. Putting the leaf on a track outboard of the fixed glazing says
+           what is actually going on: the door is open, not absent. */}
+      <mesh position={[2.65, GROUND_Y + 3.42, 2.06]} castShadow>
+        <boxGeometry args={[5.2, 0.12, 0.1]} />
+        <meshStandardMaterial color={FRAME} roughness={0.4} metalness={0.4} />
+      </mesh>
+      <Glass position={[3.9, GROUND_Y + 1.58, 2.06]} args={[2.5, 3.16, 0.05]} />
+      <Mullions position={[3.9, GROUND_Y + 1.58, 2.12]} width={2.5} height={3.16} bays={1} />
       {/* door reveal + header */}
       <mesh position={[1.4, GROUND_Y + 3.35, 1.9]}>
         <boxGeometry args={[2.6, 0.28, 0.16]} />
@@ -379,21 +448,130 @@ export default function Villa({ night }: { night: boolean }) {
         <Chair position={[2.5, 0, 1.7]} rotation={Math.PI} />
         <Chair position={[4.7, 0, 1.7]} rotation={Math.PI} />
 
-        {/* kitchen run against the rear wall */}
+        {/* ---- kitchen ----
+             The run itself was fine; the nine metres of bare plaster above it
+             was not. It was the largest unbroken surface in the room and it
+             sat directly behind the dining shot, so the frame was half empty
+             wall. A splashback and a line of wall units break it into bands at
+             the heights a kitchen actually has them. */}
         <mesh position={[0, 0.5, -3.6]} castShadow>
           <boxGeometry args={[9, 1.0, 0.8]} />
           <meshStandardMaterial {...paint} color="#DCD8CF" roughness={0.5} />
         </mesh>
+        {/* cabinet door lines — a 9m slab with no joints reads as a plinth */}
+        {[-3.4, -1.7, 0, 1.7, 3.4].map((x) => (
+          <mesh key={`kd${x}`} position={[x, 0.5, -3.19]}>
+            <boxGeometry args={[0.012, 0.92, 0.012]} />
+            <meshStandardMaterial color="#B9B4AA" roughness={0.7} />
+          </mesh>
+        ))}
         <mesh position={[0, 1.02, -3.6]}>
           <boxGeometry args={[9.1, 0.06, 0.86]} />
           <meshStandardMaterial {...marble} color="#6E6C66" roughness={0.22} metalness={0.05} />
         </mesh>
-
-        {/* art on the stone */}
-        <mesh position={[-5.6, 1.7, -1.6]} rotation={[0, Math.PI / 2, 0]}>
-          <boxGeometry args={[2.2, 1.5, 0.06]} />
-          <meshStandardMaterial color="#6B6357" roughness={0.8} />
+        {/* splashback */}
+        <mesh position={[0, 1.45, -3.96]} receiveShadow>
+          <boxGeometry args={[9, 0.78, 0.05]} />
+          <meshStandardMaterial {...paint} color="#8A867D" roughness={0.3} metalness={0.04} />
         </mesh>
+        {/* wall units, with a shadow gap under them for the strip light */}
+        {[-3.3, -1.1, 1.1, 3.3].map((x) => (
+          <group key={`ku${x}`} position={[x, 2.28, -3.79]}>
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[2.1, 0.74, 0.4]} />
+              <meshStandardMaterial {...paint} color="#CBC6BB" roughness={0.55} />
+            </mesh>
+            <mesh position={[0, -0.3, 0.21]}>
+              <boxGeometry args={[1.5, 0.02, 0.02]} />
+              <meshStandardMaterial color="#8E8A80" roughness={0.5} metalness={0.4} />
+            </mesh>
+          </group>
+        ))}
+        <pointLight
+          position={[0, 1.78, -3.2]}
+          intensity={night ? 2.2 : 0.6}
+          distance={8}
+          color={warm}
+        />
+
+        {/* ---- pendants over the table ----
+             A dining table with nothing above it reads as a table in a room
+             rather than a dining room, and at this camera height the drop is
+             right in the upper third of frame. */}
+        {[2.6, 3.6, 4.6].map((x) => (
+          <group key={`pd${x}`} position={[x, 0, 0.6]}>
+            <mesh position={[0, 2.5, 0]}>
+              <cylinderGeometry args={[0.011, 0.011, 1.0, 6]} />
+              <meshStandardMaterial color="#2E2E2C" roughness={0.5} />
+            </mesh>
+            <mesh position={[0, 1.94, 0]} castShadow>
+              <cylinderGeometry args={[0.07, 0.19, 0.24, 18]} />
+              <meshStandardMaterial color="#3A3833" roughness={0.35} metalness={0.55} />
+            </mesh>
+            <mesh position={[0, 1.83, 0]}>
+              <sphereGeometry args={[0.055, 10, 10]} />
+              <meshStandardMaterial
+                color={warm}
+                emissive={warm}
+                emissiveIntensity={night ? 3.2 : 1.1}
+                roughness={0.4}
+              />
+            </mesh>
+          </group>
+        ))}
+
+        {/* ---- things on the surfaces ----
+             Bare tabletops are the last thing that says "showhome model". */}
+        {/* books and a bowl on the low table */}
+        <mesh position={[-2.95, 0.52, 1.0]} rotation={[0, 0.24, 0]} castShadow>
+          <boxGeometry args={[0.42, 0.045, 0.3]} />
+          <meshStandardMaterial color="#7C4A38" roughness={0.75} />
+        </mesh>
+        <mesh position={[-2.93, 0.56, 1.02]} rotation={[0, 0.1, 0]} castShadow>
+          <boxGeometry args={[0.4, 0.035, 0.28]} />
+          <meshStandardMaterial color="#D9D3C6" roughness={0.8} />
+        </mesh>
+        <mesh position={[-1.85, 0.55, 1.16]} scale={[1, 0.5, 1]} castShadow>
+          <sphereGeometry args={[0.16, 16, 12]} />
+          <meshStandardMaterial {...marble} color="#8C857A" roughness={0.35} />
+        </mesh>
+        {/* a vase down the middle of the dining table */}
+        <mesh position={[3.6, 0.98, 0.6]} castShadow>
+          <cylinderGeometry args={[0.07, 0.1, 0.3, 14]} />
+          <meshStandardMaterial color="#4E6357" roughness={0.3} metalness={0.1} />
+        </mesh>
+        {[0, 1, 2].map((i) => (
+          <mesh
+            key={`st${i}`}
+            position={[3.6 + (i - 1) * 0.05, 1.24, 0.6 + (i - 1) * 0.04]}
+            rotation={[(i - 1) * 0.22, 0, (i - 1) * 0.3]}
+            castShadow
+          >
+            <cylinderGeometry args={[0.012, 0.012, 0.42, 5]} />
+            <meshStandardMaterial color="#4A6B3C" roughness={0.9} />
+          </mesh>
+        ))}
+
+        {/* ---- pictures ----
+             This was a flat grey box hung 0.85 units clear of the wall it was
+             meant to be on, which from inside read as a slab hovering in the
+             room. The lining's inner faces are at local x ±6.45, so the frames
+             sit at ±6.42 and touch plaster.
+
+             Swap any file in public/art for a photograph and it hangs here
+             instead — see ART in useTextures. */}
+        <Artwork
+          position={[-6.42, 1.78, -0.9]}
+          rotation={[0, Math.PI / 2, 0]}
+          height={1.5}
+          map={art.arcs}
+        />
+        <Artwork
+          position={[6.42, 1.85, 0.7]}
+          rotation={[0, -Math.PI / 2, 0]}
+          height={1.05}
+          map={art.horizon}
+        />
 
         <Plant position={[5.4, 0, 2.4]} scale={1.15} />
         <Plant position={[-5.4, 0, 2.6]} />
@@ -665,6 +843,14 @@ export default function Villa({ night }: { night: boolean }) {
           </group>
         ))}
 
+        {/* over the headboard — the wall the camera faces for the whole of
+            the last third of the journey, and until now bare plaster */}
+        <Artwork
+          position={[-2.2, 1.95, -4.07]}
+          height={1.25}
+          map={art.strata}
+        />
+
         {/* ---- wardrobe, with doors and handles rather than one slab ---- */}
         <group position={[-6.2, 0, -1.4]} rotation={[0, Math.PI / 2, 0]}>
           <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
@@ -918,6 +1104,172 @@ export default function Villa({ night }: { night: boolean }) {
           ))}
         </group>
       ))}
+
+      {/* ================= GROUNDS =================
+           The plot was a flat green plane running to a dead-straight horizon,
+           and every establishing shot had the villa sitting in the middle of
+           nothing. Three things fix that, in order of how much they do:
+
+           a backdrop, so the house has something behind it;
+           a middle distance, so the eye can measure how far away the backdrop
+           is; and a foreground, so the lower third of frame is not bare turf.
+
+           All of it stays clear of the camera's outdoor arc, which sweeps
+           x -23..22 at z 13..28. */}
+
+      {/* ---- distant land ----
+           Heavily fogged (the fog runs 70..260), so these read as soft
+           silhouettes rather than geometry — which is the entire point. A
+           straight horizon is the single strongest tell that a scene is a
+           plane with a sky behind it. */}
+      {hills.map((h, i) => (
+        <mesh key={`hill${i}`} position={[h.x, -h.r * h.f * 0.45, h.z]} scale={[1, h.f, 1]}>
+          <icosahedronGeometry args={[h.r, 2]} />
+          <meshStandardMaterial
+            color={night ? '#28303A' : '#7C8C79'}
+            roughness={1}
+            flatShading
+          />
+        </mesh>
+      ))}
+
+      {/* ---- treeline ----
+           One draw call for the lot. At this distance a trunk is well under a
+           pixel wide, so these are canopy masses only; putting trunks on them
+           would cost the same again and change nothing on screen. */}
+      <Instances limit={220} range={treeline.length} castShadow={false}>
+        <icosahedronGeometry args={[1, 2]} />
+        <meshStandardMaterial color={night ? '#22301F' : '#41562F'} roughness={1} flatShading />
+        {treeline.map((t, i) => (
+          <Instance
+            key={i}
+            position={[t.x, t.h * 0.52, t.z]}
+            scale={[t.r, t.h * 0.62, t.r]}
+            rotation={[0, t.spin, 0]}
+          />
+        ))}
+      </Instances>
+
+      {/* ---- garden walk ----
+           A path running the width of the plot, parallel to the terrace. It
+           sits at z 17.5, which is between the camera arc and the house, so it
+           crosses the lower third of every establishing shot and gives the
+           lawn a line to read against. */}
+      <mesh position={[-1, 0.04, 17.6]} receiveShadow>
+        <boxGeometry args={[58, 0.08, 3.2]} />
+        <meshStandardMaterial {...concreteBig} color="#CDC5B4" roughness={1} />
+      </mesh>
+      {/* kerbs — a path without an edge reads as a decal on the grass */}
+      {[16.0, 19.2].map((z) => (
+        <mesh key={z} position={[-1, 0.06, z]} receiveShadow castShadow>
+          <boxGeometry args={[58, 0.12, 0.22]} />
+          <meshStandardMaterial {...concrete} color="#EDE8DC" roughness={0.9} />
+        </mesh>
+      ))}
+      {/* spur up to the lawn steps, so the walk connects to the house */}
+      <mesh position={[2, 0.04, 16.4]} receiveShadow>
+        <boxGeometry args={[9.4, 0.08, 3.4]} />
+        <meshStandardMaterial {...concreteBig} color="#CDC5B4" roughness={1} />
+      </mesh>
+
+      {/* ---- stepping stones out onto the lawn ---- */}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <mesh key={`ss${i}`} position={[-12 - i * 0.35, 0.03, 20.4 + i * 1.5]} receiveShadow>
+          <boxGeometry args={[1.5, 0.06, 0.95]} />
+          <meshStandardMaterial {...concrete} color="#D9D3C6" roughness={0.95} />
+        </mesh>
+      ))}
+
+      {/* ---- clipped beds either side of the spur ----
+           Formal planting, because a garden that reads as designed is what
+           separates a house on a lawn from a house on an estate. */}
+      {[[-9.5, 13], [13.5, 13]].map(([cx, w]) => (
+        <group key={`bed${cx}`} position={[cx, 0, 17.6]}>
+          <mesh position={[0, 0.05, 0]} receiveShadow>
+            <boxGeometry args={[w, 0.1, 2.4]} />
+            <meshStandardMaterial {...concrete} color="#6E6355" roughness={1} />
+          </mesh>
+          {seededScatter(Math.round(w * 1.6), cx + 41).map(({ a, b, c, d }, i) => (
+            <mesh
+              key={i}
+              position={[(a - 0.5) * (w - 1), 0.34 + c * 0.16, (b - 0.5) * 1.7]}
+              scale={[1, 0.6, 1]}
+              castShadow
+              receiveShadow
+            >
+              <icosahedronGeometry args={[0.42 + d * 0.22, 1]} />
+              <meshStandardMaterial
+                color={['#3E5A33', '#48663A', '#354D28'][i % 3]}
+                roughness={1}
+              />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* ---- bollard lights along the walk ----
+           Dark posts by day; at dusk they are the thing that makes the grounds
+           look occupied rather than merely lit. */}
+      {[-22, -16, -10, 8, 14, 20].map((x) => (
+        <group key={`bol${x}`} position={[x, 0, 19.9]}>
+          <mesh position={[0, 0.32, 0]} castShadow>
+            <boxGeometry args={[0.13, 0.64, 0.13]} />
+            <meshStandardMaterial color="#3A3833" roughness={0.5} metalness={0.4} />
+          </mesh>
+          <mesh position={[0, 0.68, 0]}>
+            <boxGeometry args={[0.17, 0.09, 0.17]} />
+            <meshStandardMaterial
+              color={night ? '#FFD9A0' : '#CFCABE'}
+              emissive={night ? '#FFB861' : '#000000'}
+              emissiveIntensity={night ? 2.4 : 0}
+              roughness={0.4}
+            />
+          </mesh>
+          {night && (
+            <pointLight position={[0, 0.7, 0]} intensity={1.6} distance={5.5} color="#FFB861" />
+          )}
+        </group>
+      ))}
+
+      {/* ---- pergola over the far end of the terrace ----
+           Sited at the right-hand end, clear of the camera's line to the house
+           on every outdoor stop. Slats rather than a roof: the shadow they
+           throw across the paving is most of what it is for. */}
+      <group position={[14.5, 0.3, 8.2]}>
+        {[[-2.6, -1.9], [2.6, -1.9], [-2.6, 1.9], [2.6, 1.9]].map(([px, pz], i) => (
+          <mesh key={i} position={[px, 1.3, pz]} castShadow>
+            <boxGeometry args={[0.16, 2.6, 0.16]} />
+            <meshStandardMaterial {...cladding} color="#6E5236" roughness={0.72} />
+          </mesh>
+        ))}
+        {[-1.9, 1.9].map((pz) => (
+          <mesh key={`bm${pz}`} position={[0, 2.68, pz]} castShadow>
+            <boxGeometry args={[5.5, 0.18, 0.12]} />
+            <meshStandardMaterial {...cladding} color="#6E5236" roughness={0.72} />
+          </mesh>
+        ))}
+        {Array.from({ length: 11 }, (_, i) => (
+          <mesh key={`sl${i}`} position={[-2.5 + i * 0.5, 2.8, 0]} castShadow>
+            <boxGeometry args={[0.08, 0.14, 4.1]} />
+            <meshStandardMaterial {...cladding} color="#7C6042" roughness={0.78} />
+          </mesh>
+        ))}
+        {/* outdoor table under it */}
+        <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
+          <boxGeometry args={[2.6, 0.08, 1.2]} />
+          <meshStandardMaterial {...joinery} color="#C0A883" roughness={0.5} />
+        </mesh>
+        {[[-1.1, 0], [1.1, 0]].map(([lx], i) => (
+          <mesh key={`lg${i}`} position={[lx, 0.37, 0]} castShadow>
+            <boxGeometry args={[0.1, 0.74, 1.0]} />
+            <meshStandardMaterial color="#3A3833" roughness={0.4} metalness={0.5} />
+          </mesh>
+        ))}
+        <Chair position={[-0.75, 0, 1.0]} rotation={Math.PI} />
+        <Chair position={[0.75, 0, 1.0]} rotation={Math.PI} />
+        <Chair position={[-0.75, 0, -1.0]} rotation={0} />
+        <Chair position={[0.75, 0, -1.0]} rotation={0} />
+      </group>
 
       {/* ================= PLANTING ================= */}
       {trees.map((t, i) => (

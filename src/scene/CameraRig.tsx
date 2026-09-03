@@ -34,9 +34,20 @@ const PATH = [
   { pos: [1.4, 2.1, 7.6], look: [1.4, 2.7, 0] },      // foot of the steps
   { pos: [1.4, 2.8, 4.2], look: [1.4, 2.8, -1] },     // climbing
   { pos: [1.4, 2.9, 1.0], look: [0.6, 2.7, -3] },     // through the door
-  { pos: [0.2, 2.9, -0.4], look: [-3.4, 2.1, -4.6] }, // living room, wide
-  { pos: [-0.6, 2.9, -2.6], look: [4.0, 2.4, -1.0] }, // pan across to dining
-  { pos: [3.2, 2.9, 1.9], look: [4.65, 3.6, -2.0] },  // turn to the stair
+  // This stood 2.4 metres off the back of the sofa — top of the back at y 2.49,
+  // lens at 2.9 — and aimed at a point behind and below it, so the "wide" shot
+  // of the living room was a wall of upholstery with the room hidden behind it.
+  // Standing just inside the glazing and looking diagonally across to the far
+  // corner puts the sofa in frame at an angle, where it reads as furniture.
+  { pos: [2.3, 2.8, 1.7], look: [-3.4, 1.9, -3.0] },  // living room, wide
+  // The ground-floor sofa occupies world x -3.6..0.8, z -3.75..-2.05, with the
+  // top of its back at y 2.49. Standing at z -2.6 put the lens 0.4 above that
+  // back and half a metre from it, so the pan to the dining end opened on a
+  // wall of grey upholstery filling the frame. Standing in the circulation
+  // space between the sofa and the table keeps the whole segment — not just
+  // this point, the curve through it — clear of the furniture.
+  { pos: [1.7, 2.8, -0.1], look: [5.2, 2.2, -1.6] },  // pan across to dining
+  { pos: [3.2, 2.9, 1.45], look: [4.65, 3.6, -2.0] }, // turn to the stair
   // The flight is treads i = 0..17 at y = 1.24 + 0.194i, z = 1.5 - 0.28i.
   // These four ride it at a walker's eye height (~1.6 above the tread) rather
   // than floating over it, which is what put the slab in the middle of frame.
