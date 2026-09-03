@@ -265,12 +265,17 @@ export function Artwork({
   height = 1.4,
   map,
   moulding = '#2B2824',
+  night = false,
+  lit = false,
 }: {
   position: [number, number, number];
   rotation?: [number, number, number];
   height?: number;
   map: THREE.Texture;
   moulding?: string;
+  night?: boolean;
+  /** Hangs a picture light over the frame. Worth it on the one that matters. */
+  lit?: boolean;
 }) {
   const img = map.image as { width: number; height: number } | undefined;
   const aspect = img && img.height ? img.width / img.height : 0.72;
@@ -309,11 +314,261 @@ export function Artwork({
         <planeGeometry args={[w, h]} />
         <meshStandardMaterial
           map={map}
-          color="#8C8C8C"
+          /* Day and dusk pull in opposite directions. By day the room is bright
+             enough that an unheld map blew out; at dusk the same hold-down left
+             the print several stops under, and the only light reaching it was
+             the warm orange of the lamps, so the face went muddy and took the
+             photograph's own colour with it. At night the map is let back up
+             and also driven through emissive: a print under a picture light
+             holds its values largely independently of the room, and that is
+             both what the fitting above is for and what makes the picture
+             legible instead of a dark rectangle. */
+          color={night ? '#FFFFFF' : '#8C8C8C'}
+          emissiveMap={night ? map : undefined}
+          emissive={night ? '#FFFFFF' : '#000000'}
+          emissiveIntensity={night ? 0.5 : 0}
           roughness={0.96}
-          envMapIntensity={0.3}
+          envMapIntensity={night ? 0.15 : 0.3}
         />
       </mesh>
+
+      {lit && (
+        <group position={[0, h / 2 + mat + lip + 0.14, 0]}>
+          {/* arm off the top of the moulding */}
+          <mesh position={[0, -0.08, 0.07]} castShadow>
+            <boxGeometry args={[0.035, 0.19, 0.035]} />
+            <meshStandardMaterial color="#8A7346" roughness={0.3} metalness={0.8} />
+          </mesh>
+          {/* the shade — a horizontal tube, with the lamp showing beneath it */}
+          <mesh position={[0, 0.03, 0.19]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.055, 0.055, w * 0.6, 16]} />
+            <meshStandardMaterial color="#9C8148" roughness={0.26} metalness={0.85} />
+          </mesh>
+          <mesh position={[0, -0.015, 0.19]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.026, 0.026, w * 0.58, 12]} />
+            <meshStandardMaterial
+              color={night ? '#FFF3DE' : '#D6D0C2'}
+              emissive="#FFCE93"
+              emissiveIntensity={night ? 3.2 : 0.2}
+              roughness={0.55}
+              toneMapped={!night}
+            />
+          </mesh>
+          {night && (
+            <pointLight
+              position={[0, -0.1, 0.24]}
+              intensity={1.1}
+              distance={2.8}
+              color="#FFD8A6"
+            />
+          )}
+        </group>
+      )}
+    </group>
+  );
+}
+
+/* ============================== LIGHT FITTINGS ==============================
+   Until now every interior light in this house was a bare `pointLight`: a
+   position, an intensity, and nothing to look at. In daylight that passes,
+   because the sun is doing the work and nobody asks where the light is coming
+   from. At dusk it falls apart — rooms are lit, the source is invisible, and
+   the eye reads the whole thing as a render with its brightness turned up
+   rather than as a house with its lamps on.
+
+   So: fittings. The lamp inside each one is emissive, which is what makes it
+   read as *on* — a bright element in frame is the cue, far more than the
+   illumination it casts.
+
+   Light count is the one real cost here, so the two are separated: a fitting
+   is a few boxes and is free, an actual light is not. Most downlights in a
+   ceiling run are therefore fittings only, and the room's brightness still
+   comes from a handful of sources — which is roughly how it works in practice
+   anyway, since a downlight three metres away contributes almost nothing. */
+
+/**
+ * A recessed ceiling downlight: trim ring, and a lens sitting just proud of it.
+ *
+ * Pass `intensity` 0 for a fitting that is only there to be seen — in a run of
+ * seven, three carrying light is plenty.
+ */
+export function Downlight({
+  position,
+  night,
+  intensity = 0,
+  distance = 12,
+  color = '#FFB861',
+}: {
+  position: [number, number, number];
+  night: boolean;
+  intensity?: number;
+  distance?: number;
+  color?: string;
+}) {
+  /* `position` is the underside of the ceiling; the fitting hangs 36mm below
+     it and no more.
+
+     The lens is the lowest and widest part, which is not how a downlight is
+     actually built but is the only arrangement that reads. A fitting on a
+     ceiling 1.3m above the lens is seen from about ten degrees below it, and
+     with the lens recessed up inside a deep trim the ring's unlit side wall
+     covered it completely at that angle: a dark plate stuck to a lit ceiling,
+     which is precisely backwards. Here the emissive cylinder is what the room
+     sees from any angle at all.
+
+     And it is untone-mapped. ACES rolls the top of the range off hard, so an
+     emissive meant to be looked *at* comes back as a beige disc; skipping the
+     curve lets it clip to white instead. A source too bright to resolve is the
+     entire visual signature of a lamp that is switched on, and with no bloom in
+     the composer this is what stands in for one. */
+  return (
+    <group position={position}>
+      <mesh position={[0, -0.006, 0]}>
+        <cylinderGeometry args={[0.108, 0.108, 0.012, 20]} />
+        <meshStandardMaterial color="#E4E0D6" roughness={0.4} metalness={0.25} />
+      </mesh>
+      <mesh position={[0, -0.024, 0]}>
+        <cylinderGeometry args={[0.095, 0.095, 0.026, 20]} />
+        <meshStandardMaterial
+          color={night ? '#FFEBCB' : '#C9C4B8'}
+          emissive="#FFC178"
+          emissiveIntensity={night ? 2.6 : 0.25}
+          roughness={0.5}
+          toneMapped={!night}
+        />
+      </mesh>
+      {intensity > 0 && (
+        <pointLight
+          position={[0, -0.2, 0]}
+          intensity={intensity}
+          distance={distance}
+          color={color}
+        />
+      )}
+    </group>
+  );
+}
+
+/**
+ * A wall light. Local +z points away from the wall, the same convention
+ * `Artwork` uses, so the two take the same rotation on a given wall.
+ *
+ * The lamp is longer than the shade in front of it, so it shows above and
+ * below — and the light itself sits 140mm off the plaster, close enough that
+ * its falloff paints a visible pool. That gradient is the thing that sells it:
+ * a room can be lit from nowhere, but light that fades across a wall as it
+ * travels has obviously come from a point on that wall.
+ */
+export function Sconce({
+  position,
+  rotation = [0, 0, 0],
+  night,
+  intensity = 1.5,
+  height = 0.34,
+  color = '#FFB861',
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  night: boolean;
+  intensity?: number;
+  height?: number;
+  color?: string;
+}) {
+  return (
+    <group position={position} rotation={rotation}>
+      {/* backplate */}
+      <mesh position={[0, 0, 0.014]} castShadow>
+        <boxGeometry args={[0.1, height * 0.42, 0.028]} />
+        <meshStandardMaterial color="#8A7A5C" roughness={0.32} metalness={0.7} />
+      </mesh>
+      {/* the lamp, open at both ends */}
+      <mesh position={[0, 0, 0.085]}>
+        <cylinderGeometry args={[0.028, 0.028, height, 12]} />
+        <meshStandardMaterial
+          color={night ? '#FFEED4' : '#D2CCBE'}
+          emissive="#FFB861"
+          emissiveIntensity={night ? 3.4 : 0.2}
+          roughness={0.6}
+          toneMapped={!night}
+        />
+      </mesh>
+      {/* shade in front of it */}
+      <mesh position={[0, 0, 0.085]} castShadow>
+        <boxGeometry args={[0.085, height * 0.62, 0.09]} />
+        <meshStandardMaterial color="#9C8656" roughness={0.28} metalness={0.8} />
+      </mesh>
+      {night && (
+        <pointLight
+          position={[0, 0, 0.14]}
+          intensity={intensity}
+          distance={3.6}
+          color={color}
+        />
+      )}
+    </group>
+  );
+}
+
+/**
+ * A garden lamp post.
+ *
+ * Square section rather than a fluted pole with a coach lantern on it: this
+ * house is all straight lines and flat planes, and a Victorian post outside it
+ * would read as a prop borrowed from another building. The lantern is a
+ * glowing block held between a cap and a base plate, which is what a
+ * contemporary bollard or post head actually looks like.
+ *
+ * Same split as the downlights — `intensity` 0 makes it a post that is on to
+ * look at but does not enter the lighting loop, and in a run of four across a
+ * garden the difference is invisible.
+ */
+export function LampPost({
+  position,
+  night,
+  intensity = 0,
+  height = 3.3,
+}: {
+  position: [number, number, number];
+  night: boolean;
+  intensity?: number;
+  height?: number;
+}) {
+  const head = height + 0.42;
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.09, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.38, 0.18, 0.38]} />
+        <meshStandardMaterial color="#33322E" roughness={0.6} metalness={0.35} />
+      </mesh>
+      <mesh position={[0, height / 2 + 0.18, 0]} castShadow>
+        <boxGeometry args={[0.14, height, 0.14]} />
+        <meshStandardMaterial color="#3A3833" roughness={0.5} metalness={0.4} />
+      </mesh>
+      {/* lantern: cap, glowing body, base plate */}
+      <mesh position={[0, head + 0.2, 0]} castShadow>
+        <boxGeometry args={[0.32, 0.06, 0.32]} />
+        <meshStandardMaterial color="#2E2C28" roughness={0.45} metalness={0.5} />
+      </mesh>
+      <mesh position={[0, head, 0]}>
+        <boxGeometry args={[0.22, 0.34, 0.22]} />
+        {/* Tone mapped, unlike the downlights. Those are 90mm discs seen edge
+            on and want to clip; this is a face nine times the area, twenty
+            metres out and against a night sky, and clipped it stopped reading
+            as a lantern and started reading as a white card taped to a pole. */}
+        <meshStandardMaterial
+          color={night ? '#FFE6BE' : '#CFCABE'}
+          emissive="#FFB861"
+          emissiveIntensity={night ? 3.4 : 0}
+          roughness={0.45}
+        />
+      </mesh>
+      <mesh position={[0, head - 0.2, 0]} castShadow>
+        <boxGeometry args={[0.32, 0.06, 0.32]} />
+        <meshStandardMaterial color="#2E2C28" roughness={0.45} metalness={0.5} />
+      </mesh>
+      {night && intensity > 0 && (
+        <pointLight position={[0, head, 0]} intensity={intensity} distance={13} color="#FFB861" />
+      )}
     </group>
   );
 }

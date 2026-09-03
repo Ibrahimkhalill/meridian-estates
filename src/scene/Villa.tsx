@@ -5,12 +5,15 @@ import {
   Balustrade,
   Chair,
   CHARCOAL,
+  Downlight,
   FRAME,
   Glass,
+  LampPost,
   LINEN,
   Mullions,
   Plant,
   RENDER_WHITE,
+  Sconce,
   TIMBER,
   Tree,
   seededScatter,
@@ -151,18 +154,103 @@ export default function Villa({ night }: { night: boolean }) {
         ))
       )}
 
-      {/* ---- entrance steps: terrace 0.30 -> threshold 1.10 ---- */}
-      {[0, 1, 2, 3].map((i) => (
-        <mesh
-          key={i}
-          position={[1.4, 0.4 + i * 0.2, 5.4 - i * 0.62]}
-          receiveShadow
-          castShadow
-        >
-          <boxGeometry args={[5.4 - i * 0.25, 0.2, 0.62]} />
-          <meshStandardMaterial {...concrete} color="#FFFDF7" roughness={0.9} />
+      {/* ---- soffit downlights under the balcony ----
+           The balcony slab overhangs the front door at y 4.44, which is where
+           an architect would put the external lighting and the one place
+           outdoors a fitting reads against something rather than vanishing
+           into the dark. */}
+      {([
+        [-1.2, 0],
+        [1.4, 1],
+        [4.0, 0],
+      ] as const).map(([x, on], i) => (
+        <Downlight
+          key={`sf${i}`}
+          position={[x, 4.44, 3.7]}
+          night={night}
+          intensity={on && night ? 3.6 : 0}
+          distance={9}
+          color="#FFC98E"
+        />
+      ))}
+
+      {/* ---- lamp posts ----
+           Sited off the camera's outdoor arc, which is the only real
+           constraint in a garden this size. That arc runs (22,28), (-19,25),
+           (-23,13), (-6,23), (13,20), (1.4,15) — so the pair flanking the
+           approach stands at z 13.4 rather than out on the lawn, where the
+           swing to the right would have passed within four metres of one and
+           put a 3.3-metre post through the middle of the establishing shot.
+           The outer two close the ends of the terrace, in front of the hedge
+           blocks already there. */}
+      {([
+        [-26, 0, 4, 2.4],
+        [24, 0, 4, 0],
+        [-10.5, 0, 13.4, 2.4],
+        [18.5, 0, 13.6, 0],
+      ] as const).map(([x, y, z, on], i) => (
+        <LampPost key={`lp${i}`} position={[x, y, z]} night={night} intensity={on} />
+      ))}
+
+      {/* ---- deck markers along the front edge of the terrace ----
+           Everything lit outdoors was up against the house — the steps, the
+           soffit, the pool — and the forty metres of paving in front of it
+           still ran off into black with no edge to it. A line of markers set
+           into the front lip gives the terrace a boundary, which is the whole
+           job: at this distance you are not reading illumination, you are
+           reading where the ground stops.
+
+           Emissive only, bar two. Fourteen lamps to edge a patio would be
+           fourteen point lights in every night frame, and the run reads as
+           lighting from the presence of the line, not from what it casts. */}
+      {[-19, -15.4, -11.8, -8.2, -4.6, -1, 2.6, 6.2, 9.8, 13.4, 17].map((x) => (
+        <mesh key={`dm${x}`} position={[x, 0.235, 12.44]}>
+          <boxGeometry args={[0.3, 0.06, 0.04]} />
+          <meshStandardMaterial
+            color={night ? '#FFE3B8' : '#A8A296'}
+            emissive="#FFB861"
+            emissiveIntensity={night ? 2.4 : 0}
+            roughness={0.5}
+            toneMapped={!night}
+          />
         </mesh>
       ))}
+      {night && (
+        <pointLight position={[0.8, 0.42, 12.2]} intensity={1.8} distance={8} color="#FFB861" />
+      )}
+
+      {/* ---- entrance steps: terrace 0.30 -> threshold 1.10 ----
+           Each riser carries a marker let into either end. They are emissive
+           only, with one lamp at the foot of the flight doing the illuminating:
+           eight point lights to light four steps would be absurd, and it is the
+           row of glowing slots the eye reads as lighting in any case. */}
+      {[0, 1, 2, 3].map((i) => {
+        const w = 5.4 - i * 0.25;
+        const z = 5.4 - i * 0.62;
+        const y = 0.4 + i * 0.2;
+        return (
+          <group key={i}>
+            <mesh position={[1.4, y, z]} receiveShadow castShadow>
+              <boxGeometry args={[w, 0.2, 0.62]} />
+              <meshStandardMaterial {...concrete} color="#FFFDF7" roughness={0.9} />
+            </mesh>
+            {[-1, 1].map((sx) => (
+              <mesh key={sx} position={[1.4 + sx * (w / 2 - 0.34), y, z + 0.312]}>
+                <boxGeometry args={[0.34, 0.05, 0.015]} />
+                <meshStandardMaterial
+                  color={night ? '#FFE9C6' : '#B8B2A6'}
+                  emissive="#FFB861"
+                  emissiveIntensity={night ? 3 : 0}
+                  roughness={0.5}
+                />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
+      {night && (
+        <pointLight position={[1.4, 0.74, 5.95]} intensity={2} distance={7} color="#FFC98E" />
+      )}
 
       {/* lawn steps at the terrace edge */}
       {[0, 1, 2].map((i) => (
@@ -253,6 +341,7 @@ export default function Villa({ night }: { night: boolean }) {
           rotation={[0, -Math.PI / 2, 0]}
           height={1.15}
           map={art.horizon}
+          night={night}
         />
         <Plant position={[4.6, 0, 2.4]} scale={1.2} />
         <Chair position={[2.6, 0, 1.4]} rotation={-1.1} />
@@ -264,6 +353,19 @@ export default function Villa({ night }: { night: boolean }) {
         <boxGeometry args={[14.4, 0.5, 11.6]} />
         <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
       </mesh>
+      {/* The wings are read through glass from the drive, so their fittings
+          matter as much as the main room's — an evening approach to a house
+          whose windows glow from no visible lamp is the giveaway. */}
+      {[
+        [-17.6, -1.6],
+        [-14.0, 1.4],
+        [-10.6, -1.6],
+      ].map(([x, z], i) => (
+        <Downlight key={`lw${i}`} position={[x, GROUND_Y + 3.32, z]} night={night} />
+      ))}
+      {/* The fill stays where it was, mid-room. Hoisting it to the ceiling to
+          sit inside a fitting cost the room most of its brightness through the
+          glass, which is the only way this wing is ever seen. */}
       <pointLight position={[-14, GROUND_Y + 1.6, 2]} intensity={night ? 2.4 : 0.5} distance={13} color={warm} />
 
       {/* ================= STONE CORE =================
@@ -474,18 +576,35 @@ export default function Villa({ night }: { night: boolean }) {
               <boxGeometry args={[2.1, 0.74, 0.4]} />
               <meshStandardMaterial {...paint} color="#CBC6BB" roughness={0.55} />
             </mesh>
+            {/* under-cabinet strip. This bar was already here as trim; lit,
+                it becomes the source of the wash on the splashback below —
+                which until now arrived from a point light hanging in front of
+                the wall with nothing attached to it, and showed up as a bright
+                smudge in the middle of the tiles. */}
             <mesh position={[0, -0.3, 0.21]}>
               <boxGeometry args={[1.5, 0.02, 0.02]} />
-              <meshStandardMaterial color="#8E8A80" roughness={0.5} metalness={0.4} />
+              <meshStandardMaterial
+                color={night ? '#FFEDCC' : '#8E8A80'}
+                emissive="#FFB861"
+                emissiveIntensity={night ? 2.2 : 0}
+                roughness={0.5}
+                metalness={0.4}
+              />
             </mesh>
           </group>
         ))}
-        <pointLight
-          position={[0, 1.78, -3.2]}
-          intensity={night ? 2.2 : 0.6}
-          distance={8}
-          color={warm}
-        />
+        {/* Two, tucked to the front lip of the wall units and aligned with the
+            strips above them, rather than one in the middle of the room: the
+            wash now starts where the fitting is. */}
+        {[-2.2, 2.2].map((x) => (
+          <pointLight
+            key={`kul${x}`}
+            position={[x, 1.84, -3.45]}
+            intensity={night ? 1.1 : 0.3}
+            distance={4.6}
+            color={warm}
+          />
+        ))}
 
         {/* No pendants over the dining table, and they are not coming back:
             the table sits beneath the staircase. The flight passes over it
@@ -540,25 +659,70 @@ export default function Villa({ night }: { night: boolean }) {
           rotation={[0, Math.PI / 2, 0]}
           height={1.5}
           map={art.portrait}
+          night={night}
+          lit
         />
         <Artwork
           position={[6.42, 1.85, 0.7]}
           rotation={[0, -Math.PI / 2, 0]}
           height={1.05}
           map={art.horizon}
+          night={night}
         />
 
         <Plant position={[5.4, 0, 2.4]} scale={1.15} />
         <Plant position={[-5.4, 0, 2.6]} />
 
-        {[
-          [-3, 3.0, -0.4],
-          [3.2, 3.0, 0.4],
-          [0, 3.0, 2.6],
-          [0, 2.4, -3.4],
-        ].map(([x, y, z], i) => (
-          <pointLight key={i} position={[x, y, z]} intensity={lamp} distance={14} color={warm} />
+        {/* ---- ceiling downlights ----
+             The room was lit by four invisible point lights. By day the sun
+             covers for that; after dark it read as a room with its brightness
+             turned up rather than one with its lamps on, because nothing in
+             frame was the source of anything.
+
+             Only three of the seven carry a light. The rest are fittings,
+             which cost nothing and are what the eye is actually looking for —
+             a downlight three metres away contributes very little illumination
+             in a real room either. Positions follow the ceiling panels: the
+             stairwell void runs local x 1.8..5.0, z -1.5..3.7 and has no
+             soffit to recess anything into. */}
+        {([
+          [-4.9, -2.6, 1],
+          [-4.9, 1.0, 0],
+          [-1.7, -2.6, 0],
+          [-1.7, 1.0, 0],
+          [3.4, -2.9, 0],
+          [5.85, -1.6, 0],
+          [5.85, 1.8, 1],
+        ] as const).map(([x, z, on], i) => (
+          <Downlight
+            key={`dl${i}`}
+            position={[x, 2.98, z]}
+            night={night}
+            intensity={on ? lamp * 1.15 : 0}
+            distance={12}
+            color={warm}
+          />
         ))}
+        {/* over the dining end, which sits under the open stairwell */}
+        <pointLight position={[3.4, 2.7, 0.4]} intensity={lamp * 0.85} distance={12} color={warm} />
+
+        {/* ---- wall lights ----
+             A downlight tells you where a lamp is. A sconce tells you what
+             light does: it sits 140mm off the plaster, so its falloff paints a
+             pool that fades as it travels, and a wall lit that way can only
+             have been lit from a point on it. */}
+        <Sconce
+          position={[-6.4, 1.95, 0.7]}
+          rotation={[0, Math.PI / 2, 0]}
+          night={night}
+          intensity={1.6}
+        />
+        <Sconce
+          position={[6.4, 1.95, -1.9]}
+          rotation={[0, -Math.PI / 2, 0]}
+          night={night}
+          intensity={1.6}
+        />
       </group>
 
       {/* ---- mid slab, split around a stairwell void at x 3.2..5.4 ----
@@ -824,6 +988,7 @@ export default function Villa({ night }: { night: boolean }) {
           position={[-2.2, 1.95, -4.07]}
           height={1.25}
           map={art.strata}
+          night={night}
         />
 
         {/* ---- wardrobe, with doors and handles rather than one slab ---- */}
@@ -923,11 +1088,33 @@ export default function Villa({ night }: { night: boolean }) {
 
         <Plant position={[1.2, 0, -3.4]} scale={1.1} />
 
-        {[
-          [-2, 3.0, -1],
-          [3.4, 3.0, 0.6],
-        ].map(([x, y, z], i) => (
-          <pointLight key={i} position={[x, y, z]} intensity={lamp * 0.8} distance={13} color={warm} />
+        {/* as downstairs: fittings across the ceiling, two of them lit. The
+            bedside lamps already gave this room a visible source, which is
+            part of why it held up better at dusk than the floor below. */}
+        {([
+          [-4.6, 0.8, 0],
+          [-2.0, -1.0, 1],
+          [0.6, 0.8, 0],
+          [3.4, 0.6, 0],
+          [5.6, -1.6, 0],
+        ] as const).map(([x, z, on], i) => (
+          <Downlight
+            key={`ul${i}`}
+            position={[x, 3.26, z]}
+            night={night}
+            intensity={on ? lamp * 0.95 : 0}
+            distance={13}
+            color={warm}
+          />
+        ))}
+        {/* either side of the headboard wall */}
+        {[-5.3, 0.9].map((x) => (
+          <Sconce
+            key={`ubs${x}`}
+            position={[x, 2.0, -4.06]}
+            night={night}
+            intensity={1.2}
+          />
         ))}
       </group>
 
@@ -989,6 +1176,13 @@ export default function Villa({ night }: { night: boolean }) {
         <boxGeometry args={[12.4, 0.5, 10.4]} />
         <meshStandardMaterial color={CHARCOAL} roughness={0.7} />
       </mesh>
+      {[
+        [9.6, -1.6],
+        [12.5, 1.0],
+        [15.4, -1.6],
+      ].map(([x, z], i) => (
+        <Downlight key={`rw${i}`} position={[x, GROUND_Y + 4.12, z]} night={night} />
+      ))}
       <pointLight position={[12.5, GROUND_Y + 1.8, 1]} intensity={night ? 2.6 : 0.5} distance={13} color={warm} />
 
       {/* ================= POOL ================= */}
@@ -1006,17 +1200,54 @@ export default function Villa({ night }: { night: boolean }) {
         <boxGeometry args={[13.4, 0.05, 4.4]} />
         <meshStandardMaterial
           {...ripple}
-          color="#2F7E92"
+          /* The surface is opaque, so lamps set under it were invisible and
+             the pool stayed a flat mirror of whatever the sky was doing — at
+             dusk that is a pale grey slab, which is the one thing a lit pool
+             never looks like. The glow is therefore carried by the water, and
+             the environment reflection pulled back at night so it does not
+             wash the glow out. */
+          color={night ? '#12454F' : '#2F7E92'}
+          emissive={night ? '#22758A' : '#000000'}
+          emissiveIntensity={night ? 0.5 : 0}
           roughness={0.055}
           metalness={0}
-          envMapIntensity={1.9}
+          envMapIntensity={night ? 0.85 : 1.9}
         />
       </mesh>
-      {/* pool interior, seen through the water */}
-      <mesh position={[-11, 0.3, 9.4]} receiveShadow>
-        <boxGeometry args={[13.2, 0.3, 4.2]} />
+      {/* Pool interior, seen through the water. Its top was at 0.45 and the
+          underside of the water at 0.445 — the two all but touching, so there
+          was nowhere to put a light that was actually *in* the water. Ninety
+          millimetres lower is invisible from any camera stop and leaves a
+          volume to work in. */}
+      <mesh position={[-11, 0.24, 9.4]} receiveShadow>
+        <boxGeometry args={[13.2, 0.24, 4.2]} />
         <meshStandardMaterial color="#4E7F8C" roughness={0.6} />
       </mesh>
+
+      {/* ---- pool lights ----
+           An unlit pool at dusk is a black rectangle: water only reads as
+           water when it is lit from within, because that is the one condition
+           under which you see through the surface rather than off it. Four
+           niches in the near wall, and two lamps under the surface between
+           them doing the actual work. */}
+      {/* Flat glow patches laid on the surface came next, standing in for
+          lamps seen through it. From the establishing arc the camera is five
+          metres up and twenty out, which compresses a 1.3 x 0.7 plane to a
+          speck — three of them, scattered across a dark garden, read as
+          fireflies. The water carrying its own glow is enough. */}
+      {/* Above the surface, not below it: the point of these is the cyan spill
+          across the coping and the paving beyond, which is how you read a lit
+          pool from the far side of a garden. */}
+      {night &&
+        [-14, -8].map((x) => (
+          <pointLight
+            key={`pl${x}`}
+            position={[x, 0.62, 9.4]}
+            intensity={2.6}
+            distance={8}
+            color="#79CFE6"
+          />
+        ))}
       {/* ---- sun loungers ----
            Two floating slabs read as folded paper. A lounger is a frame with a
            cushion on it, lifted clear of the deck: the daylight gap underneath
@@ -1053,8 +1284,10 @@ export default function Villa({ night }: { night: boolean }) {
         </group>
       ))}
 
-      {/* planters along the terrace edge */}
-      {[-6, 6, 10].map((x) => (
+      {/* Planters along the terrace edge. The first of these was at x -6,
+          which put it inside the pool — the tank runs x -17.6..-4.4 — where it
+          had been passing as a dark mass on dark paving. */}
+      {[-1.6, 6, 10].map((x) => (
         <group key={x} position={[x, 0.3, 11.4]}>
           <mesh position={[0, 0.35, 0]} castShadow receiveShadow>
             <boxGeometry args={[2.6, 0.7, 1.2]} />
@@ -1194,8 +1427,11 @@ export default function Villa({ night }: { night: boolean }) {
               roughness={0.4}
             />
           </mesh>
-          {night && (
-            <pointLight position={[0, 0.7, 0]} intensity={1.6} distance={5.5} color="#FFB861" />
+          {/* Every other post carries a light. Six lamps down one path is six
+              point lights in every night frame, for a run whose pools overlap
+              anyway — and the terrace now has plenty else to pay for. */}
+          {night && [-22, -10, 14].includes(x) && (
+            <pointLight position={[0, 0.7, 0]} intensity={2.4} distance={7} color="#FFB861" />
           )}
         </group>
       ))}
@@ -1223,6 +1459,23 @@ export default function Villa({ night }: { night: boolean }) {
             <meshStandardMaterial {...cladding} color="#7C6042" roughness={0.78} />
           </mesh>
         ))}
+        {/* a line of bulbs slung under the slats. The far end of the terrace
+            was the darkest thing in the evening establishing shot, and a
+            pergola nobody has bothered to light is a pergola nobody uses. */}
+        {[-1.7, 0, 1.7].map((sx) => (
+          <mesh key={`pg${sx}`} position={[sx, 2.62, 0]}>
+            <sphereGeometry args={[0.075, 12, 10]} />
+            <meshStandardMaterial
+              color={night ? '#FFEBC8' : '#CFCABE'}
+              emissive="#FFB861"
+              emissiveIntensity={night ? 3.6 : 0}
+              roughness={0.4}
+            />
+          </mesh>
+        ))}
+        {night && (
+          <pointLight position={[0, 2.45, 0]} intensity={2.4} distance={8} color="#FFB861" />
+        )}
         {/* outdoor table under it */}
         <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <boxGeometry args={[2.6, 0.08, 1.2]} />
