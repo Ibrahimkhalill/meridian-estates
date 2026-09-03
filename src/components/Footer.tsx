@@ -56,8 +56,20 @@ export default function Footer() {
 
         <div className="mt-16 flex flex-col gap-4 border-t border-line pt-8 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>&copy; {new Date().getFullYear()} Meridian Estates. All rights reserved.</p>
+          {/* The line already credits who made the textures and the
+              photographs; whoever built the thing belongs at the front of it,
+              not in the copyright, which is the (fictional) client's. */}
           <p>
-            Villa modelled in WebGL from primitives &middot; textures{' '}
+            Built by{' '}
+            <a
+              href="https://github.com/Ibrahimkhalill"
+              target="_blank"
+              rel="noreferrer"
+              className="text-ink underline underline-offset-2 transition-colors hover:text-moss"
+            >
+              Ibrahim Khalil
+            </a>{' '}
+            &middot; villa modelled in WebGL from primitives &middot; textures{' '}
             <a
               href="https://polyhaven.com"
               target="_blank"
