@@ -1,0 +1,10 @@
+# The editing tools on this machine round-trip files through Windows text
+# mode, which silently rewrote whole files as CRLF and turned small changes into
+# whole-file diffs. Pin the working tree to LF so that cannot happen again.
+* text=auto eol=lf
+
+# Binary assets: never touched, never diffed.
+*.webp binary
+*.hdr  binary
+*.png  binary
+*.jpg  binary
