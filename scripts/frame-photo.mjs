@@ -12,9 +12,11 @@
  * dark suit on a dark ground is a silhouette.
  *
  * And a frame is a fixed shape. Rather than squash the picture to fit, the
- * canvas is built at a print portrait ratio and the subject is placed into it
- * with headroom above and the crop taken below the waist, which is where a
- * half-length portrait is normally cut.
+ * canvas is built at a print portrait ratio and the subject is scaled wider
+ * than it, so the sides and the lower body fall outside the crop. That is
+ * deliberate: hung in the villa the frame is 1.5 units tall and several metres
+ * from the lens, and a full-length figure at that size is a dark smudge. Cut
+ * to the chest, the face is large enough to be a face.
  */
 import sharp from 'sharp';
 import { mkdir } from 'node:fs/promises';
@@ -47,31 +49,42 @@ if (meta.hasAlpha) {
 const sm = await sharp(subject).metadata();
 console.log('subject  ', sm.width + 'x' + sm.height);
 
-// Fit the subject to the canvas width, leaving a margin either side, then sit
-// it low in the frame so there is headroom above the head.
-const inset = Math.round(W * 0.88);
-const scaled = await sharp(subject).resize({ width: inset }).toBuffer();
+// Wider than the canvas, so the crop closes in on the head and chest.
+const scaled = await sharp(subject).resize({ width: Math.round(W * 1.16) }).toBuffer();
 const scm = await sharp(scaled).metadata();
-const left = Math.round((W - scm.width) / 2);
-const top = Math.round(H * 0.1);
+
+// sharp will not composite an input larger than its base, so the sweep is
+// built at whatever size holds the whole subject and the finished picture is
+// cut out of it afterwards.
+const top = Math.round(H * 0.045);
+const CW = Math.max(W, scm.width);
+const CH = Math.max(H, top + scm.height);
 
 const sweep = Buffer.from(`
-  <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+  <svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}">
     <defs>
       <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%"   stop-color="#E8E3D8"/>
-        <stop offset="62%"  stop-color="#D2CBBD"/>
+        <stop offset="52%"  stop-color="#D2CBBD"/>
         <stop offset="100%" stop-color="#B4AC9C"/>
       </linearGradient>
     </defs>
-    <rect width="${W}" height="${H}" fill="url(#g)"/>
+    <rect width="${CW}" height="${CH}" fill="url(#g)"/>
   </svg>`);
 
-await sharp(sweep)
-  .composite([{ input: scaled, left, top }])
-  .resize(W, H, { fit: 'cover', position: 'top' })
+// Two passes: sharp reorders extract ahead of composite in a single pipeline,
+// which shrinks the base before the subject is laid on it and then refuses the
+// oversized input. Compositing to a buffer first sidesteps the ordering.
+const mounted = await sharp(sweep)
+  .composite([{ input: scaled, left: Math.round((CW - scm.width) / 2), top }])
+  .png()
+  .toBuffer();
+
+await sharp(mounted)
+  .extract({ left: Math.round((CW - W) / 2), top: 0, width: W, height: H })
   .webp({ quality: 88, effort: 6 })
   .toFile(`${OUT}/portrait.webp`);
 
+console.log('canvas   ', CW + 'x' + CH, '-> crop', W + 'x' + H);
 console.log('written  ', OUT + '/portrait.webp', statSync(`${OUT}/portrait.webp`).size, 'bytes');
 console.log('\nNow: npm run build');
