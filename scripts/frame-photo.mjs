@@ -7,9 +7,13 @@
  * A cutout has no background, and a framed print does. Dropping a transparent
  * subject straight into the frame leaves the mount board showing through,
  * which reads as a sticker rather than a photograph — so anything with an
- * alpha channel gets composited onto a soft studio sweep first. The sweep is
- * light because the subject in a portrait like this is usually dark, and a
- * dark suit on a dark ground is a silhouette.
+ * alpha channel gets composited onto a studio sweep first.
+ *
+ * The sweep is a mid tone, not a light one. It started light, on the reasoning
+ * that a dark suit needs a light ground — but the wall it hangs on is white
+ * and the mount board is near-white, so a pale backdrop made the whole picture
+ * disappear into the wall and the frame read as an empty black rectangle. A
+ * mid warm grey separates from both the wall behind it and the suit in front.
  *
  * And a frame is a fixed shape. Rather than squash the picture to fit, the
  * canvas is built at a print portrait ratio and the subject is scaled wider
@@ -64,9 +68,9 @@ const sweep = Buffer.from(`
   <svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}">
     <defs>
       <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#E8E3D8"/>
-        <stop offset="52%"  stop-color="#D2CBBD"/>
-        <stop offset="100%" stop-color="#B4AC9C"/>
+        <stop offset="0%"   stop-color="#C3B9A5"/>
+        <stop offset="52%"  stop-color="#A3987F"/>
+        <stop offset="100%" stop-color="#7E7462"/>
       </linearGradient>
     </defs>
     <rect width="${CW}" height="${CH}" fill="url(#g)"/>

@@ -43,7 +43,15 @@ export default function Villa({ night }: { night: boolean }) {
   const grass = useTiled('grass', [58, 58]);
   const bark = useTiled('bark', [2, 5]);
   const plaster = useTiled('plaster', [8, 4]);
-  const fabric = useSurface([4, 3], 'fabric', 0.6);
+  /**
+   * Repeat kept low on purpose. A box's UVs run 0..1 on every face whatever
+   * that face measures, so one repeat covers both the sofa's 4.4-wide seat and
+   * its 0.3-wide arm — and at 4 x 3 the arm was packing four tiles of leather
+   * grain into 300mm. Far past what the pixels can carry, so it aliased into a
+   * fixed dot grid that crawled as the camera moved. Lower frequency and a
+   * gentler normal cost nothing on the large panels and settle the small ones.
+   */
+  const fabric = useSurface([1.8, 1.4], 'fabric', 0.3);
   const carpet = useSurface([5, 4], 'carpet', 0.8);
   const marble = useTiled('marble', [2, 2]);
   const art = useArt();

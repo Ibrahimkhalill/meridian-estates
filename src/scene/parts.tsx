@@ -285,13 +285,34 @@ export function Artwork({
         <boxGeometry args={[w + (mat + lip) * 2, h + (mat + lip) * 2, 0.05]} />
         <meshStandardMaterial color={moulding} roughness={0.35} metalness={0.15} />
       </mesh>
+      {/* Mount board. Warm rather than white: these hang on white plaster, and
+          a white mount between a white wall and the picture gives the frame no
+          edge to read against at all. */}
       <mesh position={[0, 0, 0.026]}>
         <boxGeometry args={[w + mat * 2, h + mat * 2, 0.012]} />
-        <meshStandardMaterial color="#F4F1E9" roughness={0.95} />
+        <meshStandardMaterial
+          color="#CFC6B2"
+          roughness={0.98}
+          envMapIntensity={0.35}
+        />
       </mesh>
+
+      {/* The picture itself.
+          A print is not a lit surface in the way a wall is. Left as an ordinary
+          standard material it took the room's four ceiling lights, the sky and
+          the bounce all at full strength, and a backdrop authored at #A3987F
+          came out of the renderer at #e8e6df — against a #f1f1f1 wall, which
+          is to say it vanished, and the face with it. Holding the map down and
+          taking it most of the way off the environment lets the photograph keep
+          its own values instead of the room's. */}
       <mesh position={[0, 0, 0.034]}>
         <planeGeometry args={[w, h]} />
-        <meshStandardMaterial map={map} roughness={0.62} />
+        <meshStandardMaterial
+          map={map}
+          color="#8C8C8C"
+          roughness={0.96}
+          envMapIntensity={0.3}
+        />
       </mesh>
     </group>
   );
